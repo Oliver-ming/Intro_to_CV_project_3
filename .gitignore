@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Weights, data, generated outputs, and upstream checkouts stay out of git
+data/
+weights/
+checkpoints/
+outputs/
+runs/
+third_party/
+*.pth
+*.pt
+*.onnx
+*.ckpt
+*.zip

@@ -1,0 +1,236 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+\usepackage[review,pagenumbers]{cvpr}
+\input{preamble}
+
+\definecolor{cvprblue}{rgb}{0.21,0.49,0.74}
+\usepackage[pagebackref,breaklinks,colorlinks,allcolors=cvprblue]{hyperref}
+
+\def\paperID{*****}
+\def\confName{CVPR}
+\def\confYear{2026}
+
+\title{Monocular Metric Depth with Video Consistency}
+
+\author{Yuming Zhang\\
+AIAA 3201, Spring 2027\\
+50025933
+\and
+Jiayang Liu\\
+AIAA 3201, Spring 2027\\
+50027216
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We estimate dense depth from one RGB image or a short monocular video, put that depth in meters, and keep it stable over time.
+The image benchmarks are Middlebury Stereo~v3 and the official NYU Depth~v2 test split.
+StereoSGBM converts disparity to metric depth with the supplied calibration.
+Depth Anything~V2-Small is a relative baseline and is scale-and-shift aligned only for scoring.
+UniDepthV2-Small predicts metric depth from the published intrinsics, with no test-time alignment.
+A known standing height then rescales a whole image, and the same depth ranks indoor objects and raises a 1.5\,m proximity warning.
+Flow-guided fusion is run on two self-recorded indoor clips.
+Code: \url{https://github.com/Oliver-ming/Intro_to_CV_project_3}.
+\end{abstract}
+
+\section{Introduction}
+A single photograph does not determine metric depth.
+The same image is explained by a small nearby scene or a large distant one, so a network that is only trained to rank pixels can look right after a test-time fit and still be useless for measuring distance.
+Video adds a second failure: the fit can change from frame to frame, which shows up as flicker when the camera is still and as scale drift when it moves.
+
+This project keeps those two ideas separate.
+Relative depth may be aligned to a benchmark.
+Metric depth may not.
+The system we evaluate for applications is UniDepthV2 after an optional known-size scale, not the aligned relative map.
+The course asks for three parts.
+Part~1 is classical stereo and a frame-wise relative model.
+Part~2 is a zero-shot metric model.
+Part~3 is a lightweight change with an ablation: known-size calibration, plus a depth application, with flow fusion ready for the self-recorded clips.
+
+\section{Related Work}
+Semi-global matching turns a rectified pair into a disparity image by optimizing a path-wise energy~\cite{hirschmuller2008sgm}.
+KITTI made outdoor stereo and laser depth a standard driving benchmark~\cite{geiger2012kitti}.
+We follow the course datasets instead: Middlebury's quarter-resolution training pairs for stereo~\cite{scharstein2014middlebury}, and the labeled NYU Depth~v2 split for indoor monocular depth~\cite{silberman2012nyu}.
+
+Dense prediction transformers replaced fully convolutional depth heads~\cite{ranftl2021dpt}.
+Depth Anything trains that family on large-scale unlabeled images~\cite{yang2024depthanything}, and Depth Anything~V2 improves the teacher and the synthetic supervision~\cite{yang2024dav2}.
+The V2-Small checkpoint we use is relative: its output is defined up to a scale and a shift.
+UniDepth and UniDepthV2 predict metric depth and camera intrinsics together, so a published camera can be passed in at inference~\cite{piccinelli2024unidepth,piccinelli2025unidepthv2}.
+Depth Pro targets sharp metric depth in under a second and defines the scale-invariant boundary F1 we report~\cite{bochkovskii2025depthpro}.
+RAFT is the optical-flow model used to warp depth between frames~\cite{teed2020raft}.
+Video Depth Anything keeps a relative depth consistent over long videos~\cite{chen2025vda}; that comparison is blocked on the self-recorded clips.
+
+Known object height is an old cue for metric scale.
+ScaleNet uses an adult height of about 1.70\,m and a car height of about 1.59\,m, and it keeps a person only when the head and both ankles are visible~\cite{zhu2020scalenet}.
+We use those priors, and we treat a one-standard-deviation shift of them as the noisy-cue ablation.
+
+\section{Method}
+\subsection{Stereo baseline}
+On each Middlebury training pair we run StereoSGBM and a left-right consistency check.
+Invalid pixels are those whose forward and reverse disparities disagree by more than one pixel, or that have no match.
+Metric depth uses the calibration file,
+\begin{equation}
+Z = \frac{f B}{d + \mathrm{doffs}},
+\end{equation}
+with the baseline converted from millimeters to meters.
+A one-pixel disparity error then moves depth by $Z^2/(fB)$.
+
+\subsection{Frame-wise relative depth}
+Depth Anything~V2-Small runs independently on each NYU test image.
+For the table only, we solve a per-image scale and shift in depth space by least squares on the Eigen crop.
+A median scale with no shift is reported as a negative control.
+Neither number is called metric depth.
+
+\subsection{Metric depth}
+UniDepthV2-Small receives the NYU Kinect intrinsics at inference and returns meters.
+We do not fit the test set.
+The same camera is the one used to turn a box height into meters,
+\begin{equation}
+h = \frac{p_y \, Z}{f_y},
+\end{equation}
+where $p_y$ is the vertical side of the box and $Z$ is the median predicted depth inside it.
+
+\subsection{Known-size scale}
+A person or a car may vote only if the detector score is at least 0.5, the box does not touch the image border, and, for a person, the nose and both ankles are visible.
+The size prior is 1.70\,m for an adult and 1.59\,m for a car.
+The image scale is the median of prior over implied height.
+An image with no vote keeps the network scale.
+Because a single NYU image is a one-frame clip, that median is the clip scale.
+The noisy ablation repeats the vote at $+1\sigma$ and $-1\sigma$ ($0.09$\,m and $0.21$\,m).
+
+\subsection{Application}
+Indoor obstacles are detector boxes for a person, chair, couch, bed, dining table, toilet, television, refrigerator, or potted plant.
+The distance of a box is the median metric depth of the pixels inside it.
+Ranking is the fraction of box pairs whose nearer-or-farther order matches the ground-truth medians, plus the absolute relative error of those medians.
+A frame warns if the nearest obstacle is closer than 1.5\,m.
+Precision, recall, and F1 compare that decision with the same rule on ground truth.
+The point cloud lifts the same depth with the same intrinsics. It is a view, not a score.
+
+\subsection{Video, not yet run}
+RAFT-Small warps the previous fused depth onto the current frame.
+Pixels whose forward and backward flow disagree keep the current UniDepth prediction.
+The other pixels mix the two maps with a weight that falls as the flow residual grows.
+The first frame is UniDepth alone.
+Temporal error is the mean relative gap after this warp, on pixels with positive depth.
+Static-camera and moving-camera clips will be reported separately.
+Those clips are not in the repository yet.
+
+\section{Experiments}
+\subsection{Protocol}
+Middlebury uses the 15 quarter-resolution training pairs and the non-occluded mask.
+NYU uses the official 654-image test indices in \texttt{splits.mat}, the Eigen crop $[45{:}471,\,41{:}601]$, and depths from $10^{-3}$\,m to $10$\,m.
+Depth metrics follow the Depth Anything~V2 \texttt{eval\_depth} definitions: AbsRel, SqRel, RMSE, RMSE-log, and $\delta<1.25^{k}$.
+Boundary quality is Depth Pro's scale-invariant boundary F1 on that same crop.
+We do not score KITTI or a sparse laser, and we do not score an RGB edge.
+
+\subsection{Stereo}
+Table~\ref{tab:stereo} summarizes StereoSGBM.
+The mean fraction of non-occluded pixels with disparity error above 1 pixel is 0.368.
+Textured, high-disparity scenes (Jadeplant, PianoL, Vintage) are worse.
+On the Adirondack calibration ($f=1038$\,px, $B=0.176$\,m), a one-pixel disparity error is 5.5\,mm at 1\,m and 350\,mm at 8\,m.
+Disparity noise is therefore a near-field measurement and a far-field guess.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lcc}
+\hline
+Scene group & bad-1.0 & left-right kept \\
+\hline
+Best three (Teddy, Recycle, Adirondack) & 0.25--0.26 & 0.73 \\
+Mean of 15 training pairs & 0.368 & -- \\
+Jadeplant / PianoL / Vintage & 0.50--0.58 & 0.38--0.48 \\
+\hline
+\end{tabular}
+\caption{StereoSGBM on Middlebury 2014 quarter-resolution training pairs. bad-1.0 is the fraction of non-occluded pixels with disparity error above 1\,px.}
+\label{tab:stereo}
+\end{table}
+
+\subsection{NYU depth}
+Table~\ref{tab:nyu} compares the relative and metric frame-wise models.
+Scale-and-shift alignment is required for V2-Small.
+Median scaling alone raises AbsRel from 0.132 to 1.35, which is the unknown-shift failure the method section separates from metric depth.
+UniDepthV2-Small, with the dataset camera and no alignment, reaches AbsRel 0.093 and $\delta_1$ 0.925.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lccc}
+\hline
+Method & AbsRel & RMSE & $\delta_1$ \\
+\hline
+V2-Small, scale and shift & 0.132 & 0.427 & 0.845 \\
+V2-Small, median scale only & 1.348 & 3.492 & 0.191 \\
+UniDepthV2-Small, no alignment & 0.093 & 0.380 & 0.925 \\
+\hline
+\end{tabular}
+\caption{Official NYU Depth~v2 test split, Eigen crop, 10\,m cap. The first two rows are aligned relative depth. The third row is metric.}
+\label{tab:nyu}
+\end{table}
+
+\subsection{Boundary, scale, and the application}
+Table~\ref{tab:part3} is the Part~3 result on the same 654 images.
+A global scale does not change inverse-depth ratios, so the boundary F1 of UniDepth stays 0.117 after calibration.
+The aligned relative model is slightly higher, at 0.124.
+Only 60 of 654 images cast a scale vote.
+On the full test set the clean prior raises AbsRel from 0.093 to 0.273, and both one-sigma shifts stay near 0.26--0.29.
+The prior is the wrong tool on a model that is already metric: a detector box mixes background into the median, a sitting or partly occluded person still trips the ankle test, and one bad ratio rescales the whole image.
+The course asks for this analysis when the third part does not improve the main metric.
+
+The application still reads the calibrated depth, because that is the system depth defined above.
+Across 2{,}582 obstacle boxes and 9{,}127 pairs, order accuracy is 0.932 and obstacle AbsRel is 0.324.
+The 1.5\,m warning, on 163 frames whose nearest ground-truth obstacle is inside the threshold, has precision 0.911, recall 0.693, and F1 0.788.
+Order is easier than meters, which matches the damage done by the global scale.
+UniDepthV2-Small itself takes 46\,ms per $480\times640$ frame in this loop.
+The process that also holds the detector and V2-Small peaks at about 1.0\,GiB.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lc}
+\hline
+Quantity & Value \\
+\hline
+UniDepth boundary F1 & 0.117 \\
+Calibrated boundary F1 & 0.117 \\
+V2-Small aligned boundary F1 & 0.124 \\
+Calibrated AbsRel & 0.273 \\
+$+1\sigma$ prior AbsRel & 0.290 \\
+$-1\sigma$ prior AbsRel & 0.256 \\
+Images with a scale vote & 60 / 654 \\
+Pairwise order accuracy & 0.932 \\
+Obstacle AbsRel & 0.324 \\
+Proximity P / R / F1 & 0.911 / 0.693 / 0.788 \\
+\hline
+\end{tabular}
+\caption{NYU test, Part~3. Boundary F1 is scale-invariant. The proximity threshold is 1.5\,m. AbsRel rows use the Eigen crop. Application rows use detector boxes.}
+\label{tab:part3}
+\end{table}
+
+\subsection{Self-recorded clips}
+Two indoor recordings were transcoded to $1280\times720$ at 15\,fps.
+\texttt{still.mp4} keeps the camera fixed for 19.9\,s while a person walks.
+\texttt{moving.mp4} moves the camera for 19.4\,s while the person stands.
+Both show the head and both feet, plus a chair in the near field.
+A 4.8\,s moving clip was not used.
+UniDepthV2-Small with RAFT fusion gives a flow-warped temporal AbsRel of 0.021 on the still clip and 0.041 on the moving clip.
+The colored depth video uses one range for the whole clip.
+There is no ground truth, so these clips have no drift score and no metric AbsRel.
+Video Depth Anything is not in this comparison yet.
+
+\section{Conclusion}
+Stereo makes the $Z^2$ growth of disparity error concrete.
+On NYU, a relative model needs a scale and a shift before it matches ground truth, and a metric model does not.
+Known-size calibration does not improve NYU AbsRel, and the boundary score is unchanged by a global scale.
+The open measurements are the temporal numbers on the two phone clips.
+The clips are also where a person entering mid-video would have changed a per-frame scale; the implementation uses one scale for the whole clip so that entry does not cut the depth.
+
+{
+\small
+\bibliographystyle{ieeenat_fullname}
+\bibliography{main}
+}
+
+\end{document}
