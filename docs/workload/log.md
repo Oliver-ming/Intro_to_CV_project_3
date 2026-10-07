@@ -253,3 +253,9 @@ Each entry records one change: what changed, why, and which decision it rests on
 - Transcoded both to 1280x720, 15 fps, as `data/clips/still.mp4` and `data/clips/moving.mp4`. Both show a standing person, full body, and a chair indoors.
 - Started UniDepthV2-Small plus RAFT fusion on those two clips.
 - Finished. Still clip: 298 frames, flow-warped temporal AbsRel 0.021, fixed range 6.03 m. Moving clip: 289 frames, temporal AbsRel 0.041, fixed range 6.79 m. Depth videos are in `outputs/clips/`.
+
+## 2026-10-08 — Repository prepared, push left to the user
+
+- Authors from `演讲者资料.md`: Yuming Zhang (50025933) and Jiayang Liu (50027216). Report author block and README use those names. The public URL in the abstract is `https://github.com/Oliver-ming/Intro_to_CV_project_3`.
+- Staged the code, report, and docs. Data, weights, outputs, and `third_party` stay untracked.
+- `origin` points at that GitHub URL. The branch is `main`. The push is not done.
