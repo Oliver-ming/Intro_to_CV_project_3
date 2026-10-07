@@ -259,3 +259,8 @@ Each entry records one change: what changed, why, and which decision it rests on
 - Authors from `演讲者资料.md`: Yuming Zhang (50025933) and Jiayang Liu (50027216). Report author block and README use those names. The public URL in the abstract is `https://github.com/Oliver-ming/Intro_to_CV_project_3`.
 - Staged the code, report, and docs. Data, weights, outputs, and `third_party` stay untracked.
 - `origin` points at that GitHub URL. The branch is `main`. The push is not done.
+
+## 2026-10-08 — Pushed main with Yuming Zhang's email
+
+- Rewrote the local commits so the author is Yuming Zhang \<1756882063@qq.com\>. Jiayang Liu's author line stays the student id only.
+- Pushed `main` to `https://github.com/Oliver-ming/Intro_to_CV_project_3.git`. The token was used once for that push and was not written into the repo or git config.
