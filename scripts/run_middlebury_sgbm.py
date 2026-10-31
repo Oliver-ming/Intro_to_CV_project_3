@@ -26,6 +26,21 @@ def bad_pixel_rate(pred: np.ndarray, gt: np.ndarray, mask: np.ndarray, thresh: f
     return float(np.mean(err > thresh))
 
 
+def course_disparity_metrics(pred: np.ndarray, gt: np.ndarray, keep: np.ndarray) -> tuple[float, float]:
+    """Course metric on finite, positive GT disparities.
+
+    A prediction is invalid when SGBM returns no match (disparity <= 0) or the
+    pixel fails the left-right check. Returns (mean |error| px over valid
+    predictions, fraction of GT pixels with a valid prediction).
+    """
+    gt_ok = np.isfinite(gt) & (gt > 0)
+    valid = gt_ok & keep & (pred > 0)
+    if not np.any(gt_ok):
+        return float("nan"), float("nan")
+    epe = float(np.mean(np.abs(pred[valid] - gt[valid]))) if np.any(valid) else float("nan")
+    return epe, float(valid.sum() / gt_ok.sum())
+
+
 def colorize(disparity: np.ndarray) -> np.ndarray:
     finite = disparity[np.isfinite(disparity) & (disparity > 0)]
     vmax = float(np.percentile(finite, 98)) if finite.size else 1.0
@@ -42,8 +57,12 @@ def main() -> None:
         pred = stereo_sgbm(left, right, calib)
         consistent = left_right_consistent(left, right, pred, calib)
         depth = disparity_to_depth(pred, calib)
+        depth[~(consistent & (pred > 0))] = np.nan
+        epe, valid_frac = course_disparity_metrics(pred, gt, consistent)
         row = {
             "scene": scene.name,
+            "mae_px": epe,
+            "valid_frac": valid_frac,
             "bad1_nocc": bad_pixel_rate(pred, gt, non_occluded, 1.0),
             "bad2_nocc": bad_pixel_rate(pred, gt, non_occluded, 2.0),
             "lr_keep": float(np.mean(consistent)),
@@ -53,17 +72,21 @@ def main() -> None:
         cv2.imwrite(str(OUT / f"{scene.name}_invalid.png"), (~consistent).astype(np.uint8) * 255)
         np.save(OUT / f"{scene.name}_depth.npy", depth)
         print(
-            f"{scene.name:16s}  bad1={row['bad1_nocc']:.3f}  "
-            f"bad2={row['bad2_nocc']:.3f}  lr_keep={row['lr_keep']:.3f}"
+            f"{scene.name:16s}  mae={row['mae_px']:.2f}px  valid={row['valid_frac']:.3f}  "
+            f"bad1={row['bad1_nocc']:.3f}  lr_keep={row['lr_keep']:.3f}"
         )
 
+    fields = ["scene", "mae_px", "valid_frac", "bad1_nocc", "bad2_nocc", "lr_keep"]
+    mean_row = {"scene": "MEAN", **{k: float(np.mean([r[k] for r in rows])) for k in fields[1:]}}
     table = OUT / "middlebury_sgbm.csv"
     with table.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["scene", "bad1_nocc", "bad2_nocc", "lr_keep"])
+        writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
-        writer.writerows(rows)
-    bad1 = np.mean([r["bad1_nocc"] for r in rows])
-    print(f"mean bad1.0 on non-occluded pixels: {bad1:.3f}")
+        writer.writerows(rows + [mean_row])
+    print(
+        f"mean |disp err| {mean_row['mae_px']:.2f}px  valid {mean_row['valid_frac']:.3f}  "
+        f"bad1.0(nocc) {mean_row['bad1_nocc']:.3f}"
+    )
     print(f"wrote {table}")
 
 
