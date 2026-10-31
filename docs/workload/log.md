@@ -2,6 +2,13 @@
 
 Each entry records one change: what changed, why, and which decision it rests on.
 
+## 2026-10-31: Moved to the final brief
+
+- The final brief, `Project_3__Monocular_Metric_Depth_Estimation_and_Video_Consistency.pdf`, replaces the earlier ones. It requires one Part 3 improvement, makes the video part qualitative on `davis_rollercoaster.mp4`, and no longer requires self-recorded clips.
+- The user chose Direction B: one global scale fitted on NYU train and frozen for test. Main inference is RGB-only. Passing the Kinect intrinsics is an ablation.
+- New scripts: `cache_nyu_unidepth.py`, `eval_nyu_global_scale.py`, `make_nyu_figures.py`, `run_video_compare.py`, `make_pipeline_figure.py`. Stereo now reports mean |disparity error| and the valid fraction.
+- Known-height calibration, the obstacle application, and the phone clips stay in the repository and move to the report appendix (user choice). The ADRs and `CONTEXT.md` terms for them describe the earlier brief.
+
 ## 2026-10-01 — Glossary for the depth project
 
 - Read the course brief (`Project 3- Monocular Metric Depth Estimation Video Consistency.pdf`).

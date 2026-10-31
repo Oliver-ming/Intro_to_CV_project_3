@@ -15,3 +15,13 @@ third_party/
 *.onnx
 *.ckpt
 *.zip
+
+# LaTeX build files
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.brf
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.log
+paper/*.out
