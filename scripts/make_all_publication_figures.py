@@ -47,6 +47,20 @@ def read_csv_rows(path: Path) -> list[dict]:
 
 
 def make_pipeline_diagram() -> None:
+    """Delegate pipeline figure generation to pure-vector SVG generator (`scripts/make_pipeline_svg.py`)."""
+    try:
+        from scripts.make_pipeline_svg import generate_pipeline_svg
+        generate_pipeline_svg()
+        return
+    except ImportError:
+        import subprocess
+        uv_bin = Path.home() / ".local" / "bin" / "uv"
+        subprocess.run(
+            [str(uv_bin), "run", "--no-project", "--with", "cairosvg", "python", str(ROOT / "scripts" / "make_pipeline_svg.py")],
+            check=True,
+        )
+        return
+
     stereo_rows = {r["scene"]: r for r in read_csv_rows(STEREO_OUT / "middlebury_sgbm.csv")}
     sgbm_mae = float(stereo_rows["MEAN"]["mae_valid_px"])
     sgbm_val = 100.0 * float(stereo_rows["MEAN"]["valid_frac"])

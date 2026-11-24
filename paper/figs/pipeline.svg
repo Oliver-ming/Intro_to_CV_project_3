@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 554" width="1120" height="554" font-family="Liberation Sans, DejaVu Sans, Arial, sans-serif">
+<defs>
+  <linearGradient id="bg-card-blue" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#EFF6FF"/>
+  </linearGradient>
+  <linearGradient id="bg-card-amber" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#FFFBEB"/>
+  </linearGradient>
+  <linearGradient id="bg-card-violet" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#F5F3FF"/>
+  </linearGradient>
+  <linearGradient id="bg-card-teal" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#F0FDFA"/>
+  </linearGradient>
+  <linearGradient id="bg-card-green" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#ECFDF5"/>
+  </linearGradient>
+  <marker id="arrow-475569" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+    <path d="M 0 1.2 L 8.5 5 L 0 8.8 z" fill="#475569"/>
+  </marker>
+  <marker id="arrow-7C3AED" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+    <path d="M 0 1.2 L 8.5 5 L 0 8.8 z" fill="#7C3AED"/>
+  </marker>
+</defs>
+<rect x="0" y="0" width="1120" height="554" fill="#FFFFFF"/>
+<rect x="12" y="10" width="1096" height="146" rx="14" fill="#F8FAFF" stroke="#DBEAFE" stroke-width="1.3"/>
+<rect x="24" y="17" width="64" height="19" rx="9.5" fill="#2563EB" stroke="none"/>
+<text x="56.0" y="29.7" text-anchor="middle" font-size="9.2" font-weight="700" fill="#FFFFFF">PART 1</text>
+<text x="98" y="31" font-size="12.2" font-weight="700" fill="#1E3A8A">Classical Stereo Geometry Baseline, Metric Range Law &amp; Illumination / Guided Hole-Fill Filtering</text>
+<rect x="924" y="17" width="170" height="19" rx="9.5" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1"/>
+<text x="1009.0" y="29.6" text-anchor="middle" font-size="9.0" font-weight="700" fill="#1E40AF">CPU Baseline 44.0 ms / pair</text>
+<rect x="25.5" y="46.5" width="212" height="100" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="24" y="44" width="212" height="100" rx="10" fill="url(#bg-card-blue)" stroke="#93C5FD" stroke-width="1.2"/>
+<g transform="translate(36, 54)" stroke="#2563EB" stroke-width="1.5" fill="none"><rect x="0" y="3" width="32" height="15" rx="3" fill="#DBEAFE"/><circle cx="9" cy="10.5" r="4" fill="#FFFFFF"/><circle cx="23" cy="10.5" r="4" fill="#FFFFFF"/><line x1="13" y1="10.5" x2="19" y2="10.5" stroke-width="1.2"/></g><text x="76" y="64" font-size="11.6" font-weight="700" fill="#0F172A">Middlebury trainingQ</text>
+<text x="76" y="79" font-size="10.0" fill="#475569">15 Rectified Stereo Pairs</text>
+<rect x="34" y="93" width="98" height="18" rx="9.0" fill="#E0E7FF" stroke="none"/>
+<text x="83.0" y="105.1" text-anchor="middle" font-size="8.8" font-weight="500" fill="#3730A3">calib.txt (f, B)</text>
+<rect x="138" y="93" width="88" height="18" rx="9.0" fill="#E0E7FF" stroke="none"/>
+<text x="182.0" y="105.1" text-anchor="middle" font-size="8.8" font-weight="500" fill="#3730A3">GT Disparity</text>
+<text x="130" y="131" text-anchor="middle" font-size="9.5" fill="#475569">Baseline + Disparity Offset Eval</text>
+<line x1="238" y1="94" x2="266" y2="94" stroke="#475569" stroke-width="1.9" marker-end="url(#arrow-475569)"/>
+<rect x="269.5" y="46.5" width="240" height="100" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="268" y="44" width="240" height="100" rx="10" fill="url(#bg-card-amber)" stroke="#FCD34D" stroke-width="1.2"/>
+<rect x="280" y="53" width="126" height="17" rx="8.5" fill="#FEF3C7" stroke="#FDE68A" stroke-width="1"/>
+<text x="343.0" y="64.4" text-anchor="middle" font-size="8.4" font-weight="700" fill="#92400E">SGBM 3-WAY + 1px LRC</text>
+<rect x="412" y="53" width="84" height="17" rx="8.5" fill="#FEE2E2" stroke="#FECACA" stroke-width="1"/>
+<text x="454.0" y="64.4" text-anchor="middle" font-size="8.4" font-weight="700" fill="#991B1B">Invalid Mask</text>
+<text x="280" y="88" font-size="11.5" font-weight="700" fill="#0F172A">Stereo Matching &amp; Consistency</text>
+<text x="280" y="104" font-size="9.8" fill="#475569">Rejects |<tspan font-style="italic">d</tspan><tspan dy="2" font-size="7.2">L</tspan><tspan dy="-2"> − </tspan><tspan font-style="italic">d</tspan><tspan dy="2" font-size="7.2">R</tspan><tspan dy="-2">| &gt; 1 px occlusions</tspan></text>
+<rect x="280" y="115" width="76" height="19" rx="9.5" fill="#FFF7ED" stroke="#FDBA74" stroke-width="1"/>
+<text x="318.0" y="127.5" text-anchor="middle" font-size="8.5" font-weight="500" fill="#9A3412">LAB CLAHE</text>
+<rect x="362" y="115" width="134" height="19" rx="9.5" fill="#FFF7ED" stroke="#FDBA74" stroke-width="1"/>
+<text x="429.0" y="127.5" text-anchor="middle" font-size="8.5" font-weight="500" fill="#9A3412">OpenCV Guided Hole-Fill</text>
+<line x1="510" y1="94" x2="538" y2="94" stroke="#475569" stroke-width="1.9" marker-end="url(#arrow-475569)"/>
+<rect x="541.5" y="46.5" width="248" height="100" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="540" y="44" width="248" height="100" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/>
+<text x="552" y="63" font-size="11.0" font-weight="700" fill="#0F172A">Metric Range Triangulation</text>
+<rect x="552" y="72" width="156" height="21" rx="10.5" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1"/>
+<text x="564" y="85.8" font-size="9.1" font-weight="700" fill="#1E293B">Z = fB / (1000(d + d<tspan dy="2" font-size="6.8">offs</tspan><tspan dy="-2">))</tspan></text>
+<text x="552" y="111" font-size="9.5" fill="#475569">Empirical 13-bin Z error (1.0–7.5 m)</text>
+<text x="552" y="128" font-size="9.5" font-weight="700" fill="#B91C1C">|∂Z/∂d| = 1000 Z<tspan dy="-3" font-size="6.8">2</tspan><tspan dy="3">/(fB) → 92.6 cm</tspan></text>
+<g transform="translate(720, 56)"><rect x="0" y="0" width="56" height="44" rx="5" fill="#FFF5F5" stroke="#FECACA" stroke-width="0.9"/><line x1="6" y1="36" x2="50" y2="36" stroke="#94A3B8" stroke-width="1"/><line x1="6" y1="36" x2="6" y2="6" stroke="#94A3B8" stroke-width="1"/><path d="M 8 34 Q 31 31 47 9" fill="none" stroke="#DC2626" stroke-width="2"/><text x="17" y="42.5" font-size="6.9" fill="#7F1D1D" font-weight="700">O(Z<tspan dy="-2" font-size="5.2">2</tspan><tspan dy="2">)</tspan></text></g><line x1="790" y1="94" x2="818" y2="94" stroke="#475569" stroke-width="1.9" marker-end="url(#arrow-475569)"/>
+<rect x="821.5" y="46.5" width="274" height="100" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="820" y="44" width="274" height="100" rx="10" fill="url(#bg-card-green)" stroke="#34D399" stroke-width="1.4"/>
+<rect x="832" y="52" width="134" height="18" rx="9.0" fill="#D1FAE5" stroke="none"/>
+<text x="899.0" y="63.9" text-anchor="middle" font-size="8.3" font-weight="700" fill="#065F46">PART 1 METRICS (15 PAIRS)</text>
+<text x="832" y="88" font-size="12.5" font-weight="700" fill="#064E3B">Disparity MAE 1.42 px  ·  62.2% valid</text>
+<text x="832" y="107" font-size="10.2" font-weight="700" fill="#047857">Metric Z MAE 4.65 cm  (AbsRel 1.60%)</text>
+<text x="832" y="126" font-size="9.6" fill="#065F46">+Guided Fill: nocc MAE 10.01 → 4.44 px</text>
+<rect x="12" y="166" width="1096" height="176" rx="14" fill="#FAF8FF" stroke="#E9D5FF" stroke-width="1.3"/>
+<rect x="24" y="173" width="78" height="19" rx="9.5" fill="#7C3AED" stroke="none"/>
+<text x="63.0" y="185.7" text-anchor="middle" font-size="9.2" font-weight="700" fill="#FFFFFF">PARTS 2–3</text>
+<text x="112" y="187" font-size="12.2" font-weight="700" fill="#4C1D95">Zero-Shot Metric Depth Diagnosis &amp; Hierarchical Camera-Semantics ScaleProbe-2P Calibration</text>
+<rect x="844" y="173" width="250" height="19" rx="9.5" fill="#F3E8FF" stroke="#D8B4FE" stroke-width="1"/>
+<text x="969.0" y="185.6" text-anchor="middle" font-size="8.8" font-weight="700" fill="#6B21A8">Zero Test Leakage · Fit Strict on Train-795</text>
+<rect x="25.5" y="202.5" width="192" height="128" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="24" y="200" width="192" height="128" rx="10" fill="url(#bg-card-blue)" stroke="#93C5FD" stroke-width="1.2"/>
+<g transform="translate(36, 211)"><rect x="0" y="0" width="32" height="24" rx="2.5" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.4"/><rect x="4" y="4" width="24" height="16" rx="1" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1" stroke-dasharray="2.5 1.5"/></g><text x="76" y="222" font-size="11.6" font-weight="700" fill="#0F172A">NYU Depth v2</text>
+<text x="76" y="236" font-size="9.6" fill="#475569">splits.mat · 480×640</text>
+<rect x="36" y="248" width="168" height="20" rx="10.0" fill="#DBEAFE" stroke="none"/>
+<text x="120.0" y="261.1" text-anchor="middle" font-size="9.0" font-weight="700" fill="#1E40AF">Train 795 imgs (Fit Only)</text>
+<rect x="36" y="273" width="168" height="20" rx="10.0" fill="#E0E7FF" stroke="none"/>
+<text x="120.0" y="286.1" text-anchor="middle" font-size="9.0" font-weight="700" fill="#3730A3">Test 654 imgs (Zero Align)</text>
+<text x="120" y="313" text-anchor="middle" font-size="9.2" fill="#475569">Eigen Crop [45:471, 41:601]</text>
+<line x1="218" y1="264" x2="246" y2="264" stroke="#475569" stroke-width="1.9" marker-end="url(#arrow-475569)"/>
+<rect x="249.5" y="202.5" width="260" height="128" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="248" y="200" width="260" height="128" rx="10" fill="url(#bg-card-amber)" stroke="#FCD34D" stroke-width="1.2"/>
+<rect x="260" y="209" width="68" height="17" rx="8.5" fill="#E0F2FE" stroke="#7DD3FC" stroke-width="1"/>
+<g transform="translate(267, 213.5)" stroke="#0284C7" stroke-width="1.25" stroke-linecap="round"><line x1="4" y1="0" x2="4" y2="8"/><line x1="0.5" y1="2" x2="7.5" y2="6"/><line x1="7.5" y1="2" x2="0.5" y2="6"/></g><text x="279" y="220.4" font-size="8.3" font-weight="700" fill="#0369A1">FROZEN</text>
+<text x="335" y="222" font-size="12.0" font-weight="700" fill="#0F172A">UniDepthV2-Small</text>
+<rect x="260" y="233" width="236" height="22" rx="11.0" fill="#FFFBEB" stroke="#FDE68A" stroke-width="1"/>
+<text x="378.0" y="247.1" text-anchor="middle" font-size="8.9" font-weight="500" fill="#78350F">Depth D + Uncert u  (AUSE 0.276, r=+0.28)</text>
+<rect x="260" y="260" width="236" height="22" rx="11.0" fill="#FEF2F2" stroke="#FECACA" stroke-width="1"/>
+<text x="378.0" y="274.1" text-anchor="middle" font-size="8.9" font-weight="700" fill="#991B1B">Pred FoV f = 573.1 px vs 519.2 (ρ=-0.53)</text>
+<rect x="260" y="287" width="236" height="22" rx="11.0" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1"/>
+<text x="378.0" y="301.1" text-anchor="middle" font-size="8.9" font-weight="500" fill="#334155">ViT CLS + Patch + Decoder (4367-D)</text>
+<line x1="510" y1="264" x2="538" y2="264" stroke="#475569" stroke-width="1.9" marker-end="url(#arrow-475569)"/>
+<rect x="541.5" y="202.5" width="294" height="128" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="540" y="200" width="294" height="128" rx="10" fill="url(#bg-card-violet)" stroke="#7C3AED" stroke-width="1.8"/>
+<rect x="552" y="209" width="146" height="17" rx="8.5" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1"/>
+<text x="625.0" y="220.4" text-anchor="middle" font-size="8.3" font-weight="700" fill="#5B21B6">SCALEPROBE-2P ENGINE</text>
+<rect x="704" y="209" width="118" height="17" rx="8.5" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1"/>
+<text x="763.0" y="220.4" text-anchor="middle" font-size="8.3" font-weight="700" fill="#1E40AF">+2.18 ms GPU</text>
+<text x="552" y="242" font-size="11.5" font-weight="700" fill="#1E1B4B">Dual-Gram 5-Fold Train-CV Ridge + K<tspan dy="2" font-size="8.0">train</tspan><tspan dy="-2"></tspan></text>
+<rect x="552" y="250" width="132" height="21" rx="10.5" fill="#FFFFFF" stroke="#C4B5FD" stroke-width="1"/>
+<text x="571" y="263.8" font-size="8.9" font-weight="700" fill="#4C1D95">s<tspan dy="2" font-size="6.8">i</tspan><tspan dy="-2"> = exp(w</tspan><tspan dy="2" font-size="6.8">s</tspan><tspan dy="-5" font-size="6.8">T</tspan><tspan dy="3"> x + b</tspan><tspan dy="2" font-size="6.8">s</tspan><tspan dy="-2">)</tspan></text>
+<rect x="690" y="250" width="132" height="21" rx="10.5" fill="#FFFFFF" stroke="#C4B5FD" stroke-width="1"/>
+<text x="706" y="263.8" font-size="8.9" font-weight="700" fill="#4C1D95">β<tspan dy="2" font-size="6.8">i</tspan><tspan dy="-2"> (fixes β</tspan><tspan dy="2" font-size="6.8">0</tspan><tspan dy="-2">=1.058)</tspan></text>
+<rect x="552" y="277" width="270" height="21" rx="10.5" fill="#F3E8FF" stroke="#A855F7" stroke-width="1"/>
+<text x="583" y="290.8" font-size="8.9" font-weight="700" fill="#3B0764">D<tspan dy="2" font-size="6.8">cal</tspan><tspan dy="-2">(p) = clip( s</tspan><tspan dy="2" font-size="6.8">i</tspan><tspan dy="-2"> · d</tspan><tspan dy="2" font-size="6.8">med</tspan><tspan dy="-2"> · (D / d</tspan><tspan dy="2" font-size="6.8">med</tspan><tspan dy="-2">)</tspan><tspan dy="-3.5" font-size="6.8">β</tspan><tspan dy="3.5"> )</tspan></text>
+<text x="572" y="316" font-size="9.2" fill="#5B21B6">Self-Calib K<tspan dy="2" font-size="6.8">train</tspan><tspan dy="-2"> (κ=0.86)  ·  Bayesian Height Fusion</tspan></text>
+<line x1="836" y1="264" x2="864" y2="264" stroke="#475569" stroke-width="1.9" marker-end="url(#arrow-475569)"/>
+<rect x="867.5" y="202.5" width="228" height="128" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="866" y="200" width="228" height="128" rx="10" fill="url(#bg-card-green)" stroke="#34D399" stroke-width="1.4"/>
+<rect x="878" y="209" width="128" height="17" rx="8.5" fill="#D1FAE5" stroke="none"/>
+<text x="942.0" y="220.4" text-anchor="middle" font-size="8.3" font-weight="700" fill="#065F46">NYU TEST (654 IMGS)</text>
+<text x="878" y="245" font-size="14.2" font-weight="700" fill="#064E3B">AbsRel 0.0821</text>
+<text x="990" y="245" font-size="9.5" font-weight="700" fill="#059669">(-28.3% vs Raw)</text>
+<text x="878" y="264" font-size="10.0" font-weight="700" fill="#047857">RMSE 0.3385 m  ·  δ<tspan dy="2" font-size="7.2">1</tspan><tspan dy="-2"> 0.9383</tspan></text>
+<text x="878" y="281" font-size="9.6" fill="#065F46">Hurt 37.2% → 27.5% (15/16 scenes)</text>
+<rect x="878" y="294" width="204" height="21" rx="10.5" fill="#A7F3D0" stroke="#34D399" stroke-width="1"/>
+<text x="893" y="307.6" font-size="8.7" font-weight="700" fill="#064E3B">K<tspan dy="2" font-size="6.5">train</tspan><tspan dy="-2">+2P: 0.0816  |  LOSO: 0.0853</tspan></text>
+<path d="M 378 328 L 378 352 Q 378 364 390 364 L 675 364 Q 687 364 687 376 L 687 420" fill="none" stroke="#7C3AED" stroke-width="2.1" stroke-dasharray="5.5 3.5" marker-end="url(#arrow-7C3AED)"/>
+<rect x="424" y="353" width="222" height="21" rx="10.5" fill="#FFFFFF" stroke="#C4B5FD" stroke-width="1"/>
+<text x="441" y="366.6" font-size="9.0" font-weight="700" fill="#5B21B6">Sparse Keyframes (15f) · Median K<tspan dy="2" font-size="6.8">clip</tspan><tspan dy="-2"></tspan></text>
+<rect x="12" y="388" width="1096" height="154" rx="14" fill="#F4FBF9" stroke="#CCFBF1" stroke-width="1.3"/>
+<rect x="24" y="395" width="86" height="19" rx="9.5" fill="#0F766E" stroke="none"/>
+<text x="67.0" y="407.7" text-anchor="middle" font-size="9.2" font-weight="700" fill="#FFFFFF">VIDEO &amp; APP</text>
+<text x="118" y="409" font-size="12.0" font-weight="700" fill="#134E4A">Streaming Metric Video &amp; Occlusion-Aware Bokeh</text>
+<rect x="844" y="395" width="250" height="19" rx="9.5" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1"/>
+<text x="859" y="407.6" font-size="8.8" font-weight="700" fill="#115E59">P<tspan dy="2" font-size="6.5">95</tspan><tspan dy="-2"> Thin-Lens CoC Restored: 2.06 → 6.44 px</tspan></text>
+<rect x="25.5" y="424.5" width="192" height="108" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="24" y="422" width="192" height="108" rx="10" fill="url(#bg-card-blue)" stroke="#93C5FD" stroke-width="1.2"/>
+<g transform="translate(36, 434)" stroke="#0F766E" stroke-width="1.4" fill="none"><rect x="0" y="0" width="30" height="20" rx="2.5" fill="#CCFBF1"/><line x1="8" y1="0" x2="8" y2="20"/><line x1="22" y1="0" x2="22" y2="20"/><polygon points="13,6 13,14 19,10" fill="#0F766E" stroke="none"/></g><text x="74" y="444" font-size="11.5" font-weight="700" fill="#0F172A">Multi-Clip Videos</text>
+<text x="74" y="458" font-size="9.5" fill="#475569">Coaster 70f · Still · Moving</text>
+<rect x="36" y="470" width="168" height="20" rx="10.0" fill="#E0F2FE" stroke="none"/>
+<text x="72" y="483.1" font-size="8.8" font-weight="700" fill="#0369A1">Clip-Frozen [P<tspan dy="2" font-size="6.5">2</tspan><tspan dy="-2">, P</tspan><tspan dy="2" font-size="6.5">98</tspan><tspan dy="-2">]</tspan></text>
+<rect x="36" y="495" width="168" height="20" rx="10.0" fill="#E0E7FF" stroke="none"/>
+<text x="120.0" y="508.1" text-anchor="middle" font-size="8.8" font-weight="700" fill="#3730A3">RAFT Bidirectional Flow</text>
+<line x1="218" y1="476" x2="246" y2="476" stroke="#475569" stroke-width="1.9" marker-end="url(#arrow-475569)"/>
+<rect x="249.5" y="424.5" width="260" height="108" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="248" y="422" width="260" height="108" rx="10" fill="url(#bg-card-amber)" stroke="#FCD34D" stroke-width="1.2"/>
+<rect x="260" y="431" width="134" height="17" rx="8.5" fill="#FEF3C7" stroke="#FDE68A" stroke-width="1"/>
+<text x="327.0" y="442.4" text-anchor="middle" font-size="8.3" font-weight="700" fill="#92400E">KV-CACHE STREAMING</text>
+<rect x="400" y="431" width="96" height="17" rx="8.5" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1"/>
+<text x="448.0" y="442.4" text-anchor="middle" font-size="8.3" font-weight="700" fill="#166534">-84.8% VRAM</text>
+<text x="260" y="465" font-size="11.4" font-weight="700" fill="#0F172A">DAv2-S vs. VDA-S &amp; M-VDA</text>
+<text x="260" y="482" font-size="8.8" fill="#64748B">Offline 32f (8016 MiB)</text>
+<rect x="372" y="474" width="124" height="9" rx="4.5" fill="#CBD5E1"/>
+<text x="260" y="497" font-size="8.8" font-weight="700" fill="#0F766E">Stream KV (1219 MiB)</text>
+<rect x="372" y="489" width="22" height="9" rx="4.5" fill="#0D9488"/>
+<text x="260" y="517" font-size="9.5" fill="#475569">Latency 43.3 ms/f (-28.9%)  ·  OPW 0.0153</text>
+<line x1="510" y1="476" x2="538" y2="476" stroke="#475569" stroke-width="1.9" marker-end="url(#arrow-475569)"/>
+<rect x="541.5" y="424.5" width="294" height="108" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="540" y="422" width="294" height="108" rx="10" fill="url(#bg-card-teal)" stroke="#0F766E" stroke-width="1.6"/>
+<rect x="552" y="431" width="138" height="17" rx="8.5" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1"/>
+<text x="621.0" y="442.4" text-anchor="middle" font-size="8.3" font-weight="700" fill="#115E59">SHARED K_CLIP + ZERO SKY</text>
+<rect x="696" y="431" width="126" height="17" rx="8.5" fill="#F3E8FF" stroke="#D8B4FE" stroke-width="1"/>
+<text x="759.0" y="442.4" text-anchor="middle" font-size="8.3" font-weight="700" fill="#6B21A8">+1.26 ms/f IRLS</text>
+<text x="552" y="464" font-size="11.4" font-weight="700" fill="#0F172A">Causal &amp; Offline Metric Video Anchoring</text>
+<rect x="552" y="473" width="126" height="20" rx="10.0" fill="#FFFFFF" stroke="#99F6E4" stroke-width="1"/>
+<text x="577" y="486.1" font-size="8.8" font-weight="700" fill="#0F766E">1/Z ≈ a · d<tspan dy="2" font-size="6.5">vda</tspan><tspan dy="-2"> + 0</tspan></text>
+<rect x="684" y="473" width="138" height="20" rx="10.0" fill="#FFFFFF" stroke="#99F6E4" stroke-width="1"/>
+<text x="702" y="486.1" font-size="8.8" font-weight="700" fill="#0F766E">b = 0  →  Z<tspan dy="2" font-size="6.5">sky</tspan><tspan dy="-2"> → 500 m</tspan></text>
+<text x="687" y="513" text-anchor="middle" font-size="9.5" font-weight="700" fill="#115E59">4.2× lower OPW vs M-VDA (0.0343) · corr → 0.466</text>
+<line x1="836" y1="476" x2="864" y2="476" stroke="#475569" stroke-width="1.9" marker-end="url(#arrow-475569)"/>
+<rect x="867.5" y="424.5" width="228" height="108" rx="10" fill="#0F172A" opacity="0.05"/>
+<rect x="866" y="422" width="228" height="108" rx="10" fill="url(#bg-card-green)" stroke="#34D399" stroke-width="1.4"/>
+<g transform="translate(878, 432)" stroke="#059669" stroke-width="1.4" fill="none"><circle cx="10" cy="10" r="9" fill="#D1FAE5"/><circle cx="10" cy="10" r="4.5" fill="#FFFFFF"/><line x1="10" y1="1" x2="13" y2="6.5"/><line x1="19" y1="10" x2="13.5" y2="13"/><line x1="10" y1="19" x2="7" y2="13.5"/><line x1="1" y1="10" x2="6.5" y2="7"/></g><text x="904" y="443" font-size="11.5" font-weight="700" fill="#064E3B">Halo-Free Physical Bokeh</text>
+<text x="904" y="457" font-size="9.2" fill="#047857">Visibility Gather + FG Alpha</text>
+<text x="878" y="479" font-size="12.2" font-weight="700" fill="#064E3B">Coaster Halo: -63.8% Luma</text>
+<text x="878" y="497" font-size="10.0" font-weight="700" fill="#047857">Indoor Halo: -26.1%  |  Sharp 1.02</text>
+<text x="878" y="515" font-size="9.2" fill="#065F46">R<tspan dy="2" font-size="6.8">CoC</tspan><tspan dy="-2"> = σ</tspan><tspan dy="2" font-size="6.8">max</tspan><tspan dy="-2"> · max(0, 1 − Z</tspan><tspan dy="2" font-size="6.8">f</tspan><tspan dy="-2">/Z)</tspan></text>
+</svg>
