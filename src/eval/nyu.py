@@ -61,12 +61,15 @@ def metrics(pred: np.ndarray, gt: np.ndarray, mask: np.ndarray) -> dict[str, flo
     g = gt[mask].astype(np.float64)
     thresh = np.maximum(g / p, p / g)
     diff = p - g
+    log_diff = np.log(p) - np.log(g)
+    var_log = max(float(np.mean(log_diff**2) - (np.mean(log_diff) ** 2)), 0.0)
     return {
         "abs_rel": float(np.mean(np.abs(diff) / g)),
         "rmse": float(np.sqrt(np.mean(diff**2))),
         "d1": float(np.mean(thresh < 1.25)),
         "sq_rel": float(np.mean(diff**2 / g)),
-        "rmse_log": float(np.sqrt(np.mean((np.log(p) - np.log(g)) ** 2))),
+        "rmse_log": float(np.sqrt(np.mean(log_diff**2))),
+        "silog": float(100.0 * np.sqrt(var_log)),
         "d2": float(np.mean(thresh < 1.25**2)),
         "d3": float(np.mean(thresh < 1.25**3)),
     }

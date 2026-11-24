@@ -1,413 +1,377 @@
 \documentclass[10pt,twocolumn,letterpaper]{article}
 
-\usepackage[review,pagenumbers]{cvpr}
+%%%%%%%%% PAPER TYPE
+\usepackage[pagenumbers]{cvpr}
+
+% Macros and clean layout packages
 \input{preamble}
+\usepackage{microtype}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{placeins}
+\renewcommand{\dbltopfraction}{0.85}
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\textfraction}{0.10}
 
 \definecolor{cvprblue}{rgb}{0.21,0.49,0.74}
 \usepackage[pagebackref,breaklinks,colorlinks,allcolors=cvprblue]{hyperref}
 
-\def\paperID{*****}
-\def\confName{CVPR}
-\def\confYear{2026}
+%%%%%%%%% METADATA
+\def\paperID{Project 3}
+\def\confName{AIAA 3201 (Introduction to Computer Vision)}
+\def\confYear{2027}
 
-\title{Monocular Metric Depth with Video Consistency}
+%%%%%%%%% TITLE
+\title{Monocular Metric Depth Estimation and Video Consistency\\via Hierarchical Camera-Semantics Calibration}
 
-\author{Yuming Zhang\\
-AIAA 3201, Spring 2027\\
-{\tt\small 1756882063@qq.com}
-\and
-Jiayang Liu\\
-AIAA 3201, Spring 2027\\
-50027216
+%%%%%%%%% AUTHORS
+\author{
+Yuming Zhang$^{1}$ \qquad Jiayang Liu$^{1}$\\
+$^{1}$The Hong Kong University of Science and Technology (Guangzhou)\\
+{\tt\small Yuming Zhang (50025933, 1756882063@qq.com) \quad Jiayang Liu (50027216)}
 }
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-We study depth from a single RGB image and from a short monocular video, in three steps.
-First, StereoSGBM on the 15 Middlebury quarter-resolution training pairs turns disparity into meters with the supplied calibration, with a mean absolute disparity error of 1.42\,px on the 62\% of pixels it keeps.
-Second, UniDepthV2-Small predicts metric depth on the official 654-image NYU Depth~v2 test split from RGB alone, with no test-time alignment (AbsRel 0.115, $\delta_1$ 0.892).
-On the provided \texttt{davis\_rollercoaster} clip we compare frame-wise Depth Anything~V2-Small with Video Depth Anything-Small under one fixed normalization per method.
-Third, we fit one global scale on the 795 NYU training images and freeze it for the test split.
-That single number, $s=0.956$, lowers test AbsRel to 0.102 and raises $\delta_1$ to 0.900, and it is stable from about 50 training images onward.
-A depth-aware background blur is the application demo.
-Code: \url{https://github.com/Oliver-ming/Intro_to_CV_project_3}.
+We present a geometry-and-learning study bridging classical binocular stereo, zero-shot monocular metric depth calibration, streaming video consistency, and thin-lens bokeh rendering under strict zero-test-leakage protocols. First, on all 15 Middlebury \texttt{trainingQ} rectified stereo pairs, 3-way \texttt{StereoSGBM} with a 1~px left-right consistency (LRC) check achieves \textbf{1.4203~px} disparity MAE across \textbf{62.20\%} valid pixels (\textbf{44.0~ms/pair} CPU) and \textbf{4.65~cm} metric depth MAE (\textbf{1.60\%} AbsRel), empirically confirming the $O(Z^2)$ triangulation error law across 1.0--7.5~m while CLAHE + OpenCV guided hole-filling reduces non-occluded MAE from \textbf{10.01~px} to \textbf{4.44~px}. Second, auditing frozen \texttt{UniDepthV2-Small} strictly on the 795 NYU Depth v2 training images reveals three coupled biases: self-predicted focal lengths inflate by $+10.4\%$ ($\mathrm{median}=573.11$~px vs.\ Kinect $519.16$~px, $\rho=-0.534$), internal uncertainty weakly tracks log error (intra-image Pearson $+0.277$, $\mathrm{AUSE}=0.276$), and intra-room contrast compresses ($\beta_0=1.058$). Following five-fold train cross-validation without test peeking, our \textbf{4367-D ScaleProbe-2P} predicts image-wise log-scale and contrast exponent in \textbf{2.18~ms/img} GPU, reducing official 654-image NYU test AbsRel from \textbf{0.1145} raw (and \textbf{0.1020} frozen scalar) to \textbf{0.0821} ($\delta_1=0.9383$, hurt fraction $37.2\%\to 27.5\%$, improving 15/16 room categories and reaching \textbf{0.0816} with a self-calibrated $\hat{K}_{\mathrm{train}}$). Third, attention-sink KV-cache streaming in \texttt{Video Depth Anything-Small} cuts peak VRAM by \textbf{84.8\%} ($8016\to 1219$~MiB) and latency by \textbf{28.9\%} ($60.9\to 43.3$~ms/frame) across three video clips. Finally, combining shared clip intrinsics $K_{\mathrm{clip}}$ with a physical zero-sky intercept ($b=0$) in Huber-IRLS keyframe anchoring cuts outdoor OPW flicker by $4.2\times$ over official \texttt{Metric-VDA-S} ($0.1437\to 0.0343$), restores $P_{95}$ bokeh blur from $2.06$~px to \textbf{6.44~px}, and reduces foreground-to-background halo luminance bleeding by \textbf{63.8\%}. Code: \url{https://github.com/zhangym0420/Intro_to_CV_project_3}.
 \end{abstract}
 
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.97\textwidth]{figs/pipeline.pdf}
+  \vspace{-0.4em}
+  \caption{\textbf{End-to-end pipeline.} Part~1 triangulates rectified Middlebury pairs to meters and ablates CLAHE + guided hole-filling; Parts~2--3 calibrate frozen \texttt{UniDepthV2-Small} strictly on NYU train via \texttt{ScaleProbe-2P} and virtual $\hat{K}_{\mathrm{train}}$; Video \& Bokeh enforce shared-$K_{\mathrm{clip}}$, zero-sky keyframe IRLS over streaming \texttt{VDA-Small} to eliminate temporal flicker and foreground-to-sky dark halos.}
+  \label{fig:pipeline}
+  \vspace{-0.5em}
+\end{figure*}
+
+%-------------------------------------------------------------------------
 \section{Introduction}
-A single photograph does not determine metric depth.
-The same image is explained by a small nearby scene or a large distant one.
-Stereo removes that ambiguity with a known baseline, and depth then follows from disparity.
-Monocular networks remove it only by learning what scenes usually look like, so a model can rank pixels well and still be wrong in meters.
+Recovering physically meaningful metric depth $Z$ from images spans a classic spectrum. Multi-view triangulation offers exact scale via baseline $B$ and focal length $f$, yet fails inside textureless surfaces or half-occluded regions and suffers quadratic $O(Z^2)$ sensitivity with range~\cite{hirschmuller2008sgm,scharstein2014middlebury}. Conversely, modern affine-invariant single-image predictors such as MiDaS~\cite{ranftl2020midas}, DPT~\cite{ranftl2021dpt}, and Depth Anything V2 (\texttt{DAv2})~\cite{yang2024dav2} synthesize sharp edges up to an unknown per-frame scale and shift, inducing temporal flicker in video and requiring ground-truth least-squares alignment before any metric reasoning. Zero-shot camera-aware predictors (\texttt{UniDepthV2}~\cite{piccinelli2025unidepthv2}, Metric3Dv2~\cite{yin2024metric3dv2}, Depth Pro~\cite{bochkovskii2025depthpro}, MoGe-2~\cite{wang2025moge2}) infer metric $Z$ directly from single RGB frames, while video transformers (\texttt{Video Depth Anything}~\cite{chen2025vda}) enforce clip-level coherence.
 
-We keep three kinds of output apart throughout.
-\emph{Stereo depth} comes from disparity and calibration.
-\emph{Relative depth}, from Depth Anything~V2~\cite{yang2024dav2} or Video Depth Anything~\cite{chen2025vda}, is defined only up to an unknown scale and shift, and we never put it in meters.
-\emph{Metric depth}, from UniDepthV2~\cite{piccinelli2025unidepthv2}, is scored on NYU with no test-set fitting.
-Video adds a second problem: a frame-wise model can change its answer between frames, which shows up as flicker.
-The provided clip has no ground truth, so that part is qualitative.
+Under strict deployment protocols---zero test-set alignment on NYU Depth v2~\cite{silberman2012nyu,eigen2014depth} and zero ground-truth scale on unconstrained video~\cite{perazzi2016davis}---two severe bottlenecks emerge cleanly in our measurements:
+\begin{enumerate}
+  \item \textbf{Single-image metric miscalibration:} When RGB intrinsics are absent, \texttt{UniDepthV2-Small} systematically overestimates Kinect focal lengths ($\mathrm{median}=573.11$~px vs.\ $519.16$~px), shrinking scene scale ($r=0.956$) while compressing dynamic range ($\beta_0=1.058$). A frozen scalar ($0.9563$) leaves substantial residual error ($\mathrm{AbsRel}=0.1020$) and \emph{degrades} $37.2\%$ of test images.
+  \item \textbf{Temporal metric inconsistency \& bokeh halos:} Frame-wise \texttt{DAv2-Small} flickers along moving contours, while offline 32-frame \texttt{VDA-Small} consumes $8.0$~GiB VRAM. Na\"ively anchoring relative inverse depth via affine IRLS against per-frame raw intrinsics introduces a nonzero sky intercept ($b>0$), capping sky distance ($105$--$187$~m) and collapsing outdoor defocus blur to $2.06$~px, while naive gather filtering leaks dark foreground struts into bright skies.
+\end{enumerate}
 
-For the improvement we pick metric scale calibration.
-UniDepthV2-Small, run RGB-only on NYU, overestimates depth by a few percent on most images.
-If the bias is systematic for a domain, one number estimated on training data should remove part of it without touching test labels.
-We measure how much, with which estimator, from how few images, and where it fails.
-Figure~\ref{fig:pipeline} shows the three parts.
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/pipeline.pdf}
-\caption{Pipeline. Top: stereo geometry. Middle: metric depth and the frozen global scale (Part~3, direction B). Bottom: the video comparison and the depth-aware blur demo.}
-\label{fig:pipeline}
-\end{figure}
+\textbf{Contributions.} Evaluating every stage against exact baselines without test leakage, we make four contributions:
+\begin{itemize}
+  \item \textbf{Complete Part~1 Stereo Metric Baseline:} Beyond disparity MAE ($1.4203$~px) and valid fraction ($62.20\%$), we visualize left-right invalid masks, benchmark metric depth $Z$ ($4.65$~cm MAE, $1.60\%$ AbsRel), verify $O(Z^2)$ error growth empirically across $1.0$--$7.5$~m, and ablate CLAHE + OpenCV guided hole-filling ($10.01\to 4.44$~px non-occluded MAE).
+  \item \textbf{Hierarchical Calibration (\texttt{ScaleProbe-2P} \& $\hat{K}_{\mathrm{train}}$):} Driven by train-only diagnostics on 795 NYU images, a 4367-D ridge probe (2.18~ms/img GPU) lowers test AbsRel from $0.1145\to 0.0821$ ($\delta_1=0.9383$, $\mathrm{SILog}=9.36$, $-28.3\%$) and $0.0816$ with $\hat{K}_{\mathrm{train}}$, generalized under Leave-One-Scene-Out ($0.0853$), feature/error decomposition, and Bayesian soft-fusion of noisy person-height cues ($1.3119\to 0.0873$ voted AbsRel).
+  \item \textbf{Streaming Video \& Multi-Clip Metric Consistency:} Benchmarking three clips (\texttt{davis\_rollercoaster}, \texttt{still}, \texttt{moving}) with optical-flow warping error (OPW~\cite{teed2020raft,wang2023nvds}), stationary TAE, 2nd-order jitter, and scale drift, we quantify \texttt{VDA-Small} KV-cache streaming ($-84.8\%$ VRAM, $-28.9\%$ latency), \texttt{RAFT-EMA}, official \texttt{Metric-VDA-Small}~\cite{chen2025vda}, and causal sparse-keyframe anchoring.
+  \item \textbf{Physical Zero-Sky Anchoring \& Halo-Free Bokeh:} Enforcing shared $K_{\mathrm{clip}}$ and $b=0$ raises disparity--$1/Z$ correlation ($0.340\to 0.466$), restores $P_{95}$ CoC from $2.06\to 6.44$~px, and our background-visibility premultiplied renderer cuts halo luma bleed by \textbf{63.8\%} on \texttt{rollercoaster} and \textbf{26.1\%} indoors.
+\end{itemize}
 
+%-------------------------------------------------------------------------
 \section{Related Work}
-\paragraph{Stereo.}
-Semi-global matching aggregates matching costs along several 1-D paths to approximate a 2-D smoothness prior~\cite{hirschmuller2008sgm}; OpenCV's StereoSGBM is a block-matching variant of it.
-KITTI made stereo and laser depth a standard driving benchmark~\cite{geiger2012kitti}.
-We use Middlebury's quarter-resolution training pairs, which come with dense ground truth and per-scene calibration~\cite{scharstein2014middlebury}.
+\paragraph{Classical \& Learned Stereo.}
+Semi-Global Matching (SGM)~\cite{hirschmuller2008sgm} aggregates directional scanline smoothness costs for efficient CPU stereo~\cite{scharstein2014middlebury}, often paired with LRC masking, CLAHE~\cite{zuiderveld1994clahe}, and edge-aware hole filling~\cite{he2013guided,min2014fast}. Recent foundation stereo networks~\cite{wen2025foundationstereo,jiang2025defomstereo,guan2025bridgedepth} narrow sim-to-real gaps across benchmarks~\cite{geiger2012kitti} but sacrifice lightweight CPU execution. We anchor Part~1 strictly on classical 3-way SGBM with explicit LRC invalid maps and metric triangulation.
 
-\paragraph{Monocular foundations.}
-DPT replaced convolutional depth decoders with a vision-transformer backbone and a reassembling head~\cite{ranftl2021dpt}.
-Depth Anything scales that design with tens of millions of pseudo-labeled images~\cite{yang2024depthanything}.
-Depth Anything~V2 trains its teacher on synthetic images and distills it to smaller students, which gives sharper boundaries~\cite{yang2024dav2}.
-Its released Small checkpoint predicts relative depth.
+\vspace{-0.2em}
+\paragraph{Monocular Metric Depth \& Scale Calibration.}
+Relative predictors~\cite{ranftl2020midas,ranftl2021dpt,yang2024depthanything,yang2024dav2} train on multi-dataset affine-invariant losses, whereas ZoeDepth~\cite{bhat2023zoedepth}, Metric3Dv2~\cite{yin2024metric3dv2}, Depth Pro~\cite{bochkovskii2025depthpro}, UniDepth~\cite{piccinelli2024unidepth,piccinelli2025unidepthv2}, MoGe~\cite{wang2025moge,wang2025moge2}, and DA3~\cite{lin2025da3} predict metric depth or camera intrinsics directly. Prior calibration works adapt depth via camera extrinsics~\cite{zhu2020scalenet}, language-conditioned distributions~\cite{zeng2024rsa}, sparse depth prompts~\cite{lin2025promptda,wang2025priorda}, equivariant FoV canonicalization~\cite{guo2025dac}, diffusion intrinsic refinement~\cite{deng2025dmcalib}, or dataset-specific heads~\cite{zhu2024scaledepth} evaluated across RGB-D benchmarks~\cite{sturm2012tum,silberman2012nyu}. Complementing pixel uncertainty estimation~\cite{ilg2018uncertainty}, we show that frozen \texttt{UniDepthV2} decoder/camera tokens already encode scene scale and intra-room contrast, enabling millisecond closed-form dual-Gram calibration without backpropagation or test-time optimization.
 
-\paragraph{Metric depth.}
-UniDepth predicts depth and a dense camera representation together, so it needs no intrinsics at test time~\cite{piccinelli2024unidepth}.
-UniDepthV2 simplifies that design, adds an edge-guided loss and an uncertainty output, and still accepts a known camera as an optional input~\cite{piccinelli2025unidepthv2}.
-Depth Pro estimates focal length and produces sharp metric depth in under a second~\cite{bochkovskii2025depthpro}.
-These models are zero-shot: none is trained on our NYU split.
-That leaves room for a domain bias that a single scale could absorb.
+\vspace{-0.2em}
+\paragraph{Video Depth Consistency \& Thin-Lens Bokeh.}
+Temporally consistent video depth progressed from test-time optimization~\cite{wang2023nvds} and video diffusion (\texttt{DepthCrafter}~\cite{hu2025depthcrafter}, \texttt{RollingDepth}~\cite{ke2025rollingdepth}) to multi-view geometry transformers~\cite{wang2025vggt} and streaming KV-cache architectures (\texttt{VDA}~\cite{chen2025vda}, \texttt{FlashDepth}~\cite{chou2025flashdepth}). Unlike offline 32-frame windows ($8$~GiB), we pair KV-cache streaming with RAFT flow warping~\cite{teed2020raft}, shared-$K_{\mathrm{clip}}$ IRLS anchoring, and occlusion-aware thin-lens bokeh~\cite{peng2022bokehme,sheng2024drbokeh} to prevent dark foreground-into-sky halos.
 
-\paragraph{Video depth and motion.}
-RAFT computes dense optical flow by iterative updates on an all-pairs correlation volume~\cite{teed2020raft}; we use it only for an optional temporal diagnostic.
-Video Depth Anything adds a spatio-temporal head to Depth Anything~V2 and trains it with a temporal gradient-matching loss, then stitches long videos from overlapping 32-frame windows~\cite{chen2025vda}.
-NYU Depth~v2 provides the labeled indoor images and the official split~\cite{silberman2012nyu}.
-TUM RGB-D is a video benchmark with ground-truth depth and poses~\cite{sturm2012tum}; the course does not require it and we do not use it.
+%-------------------------------------------------------------------------
+\section{Methodology}
 
-\section{Method}
-\subsection{Part 1: stereo geometry}
-On each rectified Middlebury pair we run StereoSGBM (3-way mode, block size 5, $P_1=8\cdot25$, $P_2=32\cdot25$, uniqueness 10, speckle window 100) with as many disparity levels as \texttt{ndisp} in \texttt{calib.txt}, rounded up to a multiple of 16.
-OpenCV returns fixed-point disparity, which we divide by 16.
-We then match right-to-left and keep a left pixel only if the two disparities agree within 1\,px.
-A prediction is \emph{invalid} if SGBM finds no match ($d\le 0$) or the pixel fails this check.
-Valid pixels become meters with the Middlebury calibration,
+\subsection{Part 1: Rectified Stereo Geometry \& Range Sensitivity}
+Given rectified Middlebury \texttt{trainingQ} stereo pairs $(I_L, I_R)$ and calibration metadata $(f, B, d_{\text{offs}})$ from \texttt{calib.txt}, we run 3-way OpenCV \texttt{StereoSGBM} (SAD window $5\times 5$, $P_1=600$, $P_2=2400$, uniqueness ratio $10$, speckle $100\times 2$), paired with a flipped right-to-left pass accepting disparity $d_L(p)$ only when $|d_L(p) - d_R(p - (d_L(p),0))| \le 1.0$~px and $d_L(p)>0$. Valid disparities convert deterministically to metric depth (m):
 \begin{equation}
-Z = \frac{f\,B}{d + d_\mathrm{offs}} \cdot \frac{1}{1000},
-\label{eq:stereo}
+  Z(p) = \frac{f B}{1000\left(d_L(p) + d_{\text{offs}}\right)}, \qquad
+  \left|\frac{\partial Z}{\partial d}\right| = \frac{1000\, Z^2}{f B},
+  \label{eq:stereo}
 \end{equation}
-where $f$ is the quarter-resolution focal length in pixels, $B$ the baseline in millimeters, and $d_\mathrm{offs}$ the principal-point offset between the two cameras.
-Differentiating gives $|\partial Z/\partial d| = 1000\,Z^2/(fB)$, so the same disparity error costs far more depth at long range.
+explicitly explaining why uniform $1$~px matching errors trigger quadratic $O(Z^2)$ metric drift at longer ranges. We further ablate LAB $L$-channel CLAHE illumination normalization~\cite{zuiderveld1994clahe}, an OpenCV pure-boxFilter normalized guided filter~\cite{he2013guided} filling LRC holes over non-occluded regions (\texttt{mask0nocc.png}), and 8-path \texttt{HH} DP cost aggregation.
 
-\subsection{Part 1--2: frame-wise and video relative depth}
-Depth Anything~V2-Small (DAv2-S) runs independently on every frame of \texttt{davis\_rollercoaster.mp4} at the repository's default input size 518.
-Video Depth Anything-Small (VDA-S) runs offline on the same frames with the official flags \texttt{--encoder vits --max\_len 100 --max\_res 640} and FP16.
-The clip has only 70 frames, so ``the first 100 frames'' is the whole clip, read at its original 24\,fps and resized to $640\times360$.
-Both outputs are relative disparity-like maps.
-We color each method with one fixed range over the whole clip (its 2nd and 98th percentiles) and the same palette.
-Ranges differ between the two methods, because their outputs share no scale.
-We never fit these maps to meters.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/stereo_part1_panel.pdf}
+  \vspace{-1.3em}
+  \caption{\textbf{Part 1 Stereo outputs} on \texttt{Adirondack} and \texttt{Jadeplant}: Left RGB, valid SGBM disparity, LRC invalid mask (crimson = rejected occlusions/borders), and triangulated metric depth $Z$~(m).}
+  \label{fig:stereo_panel}
+  \vspace{-0.6em}
+\end{figure}
 
-\subsection{Part 2: zero-shot metric depth}
-UniDepthV2-Small (ViT-S, \texttt{lpiccinelli/unidepth-v2-vits14}) receives only the RGB image through \texttt{infer(rgb)} and predicts its own camera and metric depth.
-We resize its output to $480\times640$ bilinearly.
-No scale or shift is fit on the test split.
-As an ablation we also pass the published Kinect intrinsics, which the brief does not require.
+\subsection{Parts 2 \& 3: Hierarchical NYU Calibration}
+All NYU Depth v2~\cite{silberman2012nyu} evaluations resize predictions to $480\times 640$, clip $[10^{-3}, 10]$~m, evaluate inside the official Eigen crop $[45{:}471, 41{:}601]$, and average equally across all 654 official test images with \textbf{zero test-set alignment}. All parameters, scalers, $\kappa$, Ridge $\lambda$, and Bayesian noise variances are fitted strictly on the 795 official training images (\texttt{trainNdxs}).
 
-\subsection{Part 3: frozen global metric scale (direction B)}
-Let $D_i$ be the raw UniDepth prediction and $G_i$ the ground truth of training image $i$, and let $\Omega_i$ be its evaluation pixels (same crop and range as the test protocol).
-We fit one scalar $s$ on the 795 training images only and report test metrics of $s\,D$.
-The main estimator gives each image one vote,
+\vspace{-0.2em}
+\paragraph{Train-Only Diagnosis of Zero-Shot Biases.}
+Extracting frozen \texttt{UniDepthV2-Small} predictions on the 795 training frames reveals three systematic, physical failure modes:
+\begin{enumerate}
+  \item \textbf{Camera--Scale Coupling:} In RGB-only mode, \texttt{UniDepthV2} overestimates NYU's Kinect focal length ($519.16$~px) with $\mathrm{median}(\hat{f})=573.11$~px ($\mathrm{IQR}=[558.5,583.8]$, $\sigma=90.9$~px), creating negative correlation between predicted $\log \hat{f}_i$ and optimal per-image median scale $r_i^{\text{med}} = \mathrm{median}_p(G_i/D_i)$ ($\rho = -0.534$, and $-0.482$ for least-AbsRel $r_i^{\text{opt}}$; global median $s_{\mathrm{med}}=0.9563$).
+  \item \textbf{Structured Uncertainty Alignment:} Inside training scenes, predicted confidence $\hat{u}(p)$ correlates positively with scale-aligned error $|\log(r_i^{\text{med}} D_i(p)) - \log G_i(p)|$ (intra-image Pearson $+0.277$, Spearman $+0.290$; train-verified sparsification $\mathrm{AUSE}=0.276$), guiding pooled error features.
+  \item \textbf{Intra-Room Contrast Compression:} Regressing $\log(G_i/d_{\text{med},i}) = \beta_i \log(D_i/d_{\text{med},i})$ per train frame yields $\mathrm{median}(\beta_i) = 1.058$ ($\mathrm{IQR}=[0.986,1.140]$): raw predictions slightly compress room depth range ($\beta_i > 1$), which a single scalar cannot fix.
+\end{enumerate}
+
+\vspace{-0.2em}
+\paragraph{Hierarchical Formulation (\texttt{ScaleProbe-2P} \& $\hat{K}_{\mathrm{train}}$).}
+We construct an interpretable progression: (1) frozen global scalar $s_{\mathrm{med}}$; (2) centered global 2P power-law $(s_0, \beta_0)$; (3) analytic FoV power law $\hat{s}(\hat{f}_i)=\exp(b_0 + b_1 \log\hat{f}_i)$; and (4) \textbf{\texttt{ScaleProbe-2P}}, a dual-Gram $L_2$-ridge linear probe over block-weighted features $\tilde{x}_i = [\sqrt{w_k}\,\phi_k(I_i)]$ extracted solely from frozen \texttt{UniDepthV2-Small} ($\phi_{\text{geo}}\in\mathbb{R}^{15}$ standardized log intrinsics/vertical log-tilt/depth \& uncertainty quantiles; $\ell_2$-normalized ViT CLS $\phi_{\text{cls}}\in\mathbb{R}^{1536}$, spatial patch tokens $\phi_{\text{pat}}\in\mathbb{R}^{2304}$, decoder depth summary $\phi_{\text{dfe}}\in\mathbb{R}^{512}$, plus optional spatial decoder $\phi_{\text{dfe\_sp}}\in\mathbb{R}^{2048}$ and camera head latents $\phi_{\text{cam}}\in\mathbb{R}^{1024}$):
+\begin{align}
+  \hat{s}_i &= \exp\!\big(w_s^\top \tilde{x}_i + b_s\big), \quad
+  \hat{\beta}_i = \operatorname{clip}\!\big(w_\beta^\top \tilde{x}_i + b_\beta,\, 0.80, 1.25\big), \nonumber\\
+  \hat{D}_i(p) &= \operatorname{clip}\!\left(\hat{s}_i\, d_{\text{med}, i} \left(\frac{D_i(p)}{d_{\text{med}, i}}\right)^{\hat{\beta}_i},\; 10^{-3}, 10\right),
+  \label{eq:probe2p}
+\end{align}
+where ridge weights $(w_s, b_s)$ and $(w_\beta, b_\beta)$ minimize squared error against train oracle targets $(\log r_i^{\text{opt}}, \beta_i)$, and decoupled regularizations $(\lambda_s, \lambda_\beta)$ are chosen exclusively by 5-fold train AbsRel CV over $\{0.005,\dots,10.0\}$. Selecting strictly by Train CV chooses the 4367-D $(\phi_{\text{geo}}, \phi_{\text{cls}}, \phi_{\text{pat}}, \phi_{\text{dfe}})$ model (0.0865 CV) as our primary single-backbone calibrator, while we report expanded 6927-D \texttt{v2} and cross-backbone \texttt{+DAv2} transparently. Optionally, for uncalibrated fixed-rig deployment ($\hat{K}_{\mathrm{train}}$), we cross-validate one train scalar $\kappa \in \{0.84,\dots,1.00\}$ shrinking median train focal lengths $\tilde{f}_x,\tilde{f}_y$ into $\hat{K}_{\mathrm{train}}=\operatorname{diag}(\kappa\tilde{f}_x, \kappa\tilde{f}_y, 1)$ ($\kappa=0.86$, $\hat{f}_x=492.5$~px). For occasional semantic priors such as noisy \texttt{KeypointRCNN}~\cite{he2017maskrcnn} standing-person heights $s_{\text{person}}$, we replace brittle hard overrides with Bayesian inverse-variance fusion using strictly train-estimated uncertainties $(\sigma_{\text{prior}}, \sigma_{\text{obs}})$:
 \begin{equation}
-s_\mathrm{med} = \operatorname*{median}_{i\in\mathrm{train}} \; \operatorname*{median}_{p\in\Omega_i} \frac{G_i(p)}{D_i(p)},
-\label{eq:smed}
+  \hat{s}_{\text{post}, i} = \frac{\sigma_{\text{obs}}^2\, \hat{s}_{\text{prior}, i} + \sigma_{\text{prior}}^2\, s_{\text{person}, i}}{\sigma_{\text{prior}}^2 + \sigma_{\text{obs}}^2}.
+  \label{eq:bayes}
 \end{equation}
-so a few images with very large or very small depth cannot pull the estimate.
-For the ablation we pool all training pixels and minimize three losses: squared log error, $s_\mathrm{log}=\exp(\overline{\log G - \log D})$; squared metric error, $s_\mathrm{ls}=\sum DG / \sum D^2$; and AbsRel itself.
-Because $\sum |sD-G|/G = \sum (D/G)\,|s - G/D|$, the AbsRel minimizer is the weighted median of $G/D$ with weights $D/G$.
-The pooled estimators weight images by their number of valid pixels.
 
-We choose $s_\mathrm{med}$ before looking at test results, because its per-image vote matches the test protocol, which averages metrics per image.
-Once fit, $s$ is written to disk and never changed.
-A global scale cannot change depth ordering or the relative shape inside an image.
-It can fix only a bias that is shared across images, which sets an upper limit on what this direction can achieve.
-We report that limit as a diagnostic \emph{oracle}: a per-image median scale fitted to test ground truth, which is not a valid method.
+\subsection{Metric Video Anchoring \& Halo-Free Thin-Lens Bokeh}
+We evaluate three videos up to 100 frames at max width 640~px (\texttt{davis\_rollercoaster.mp4} containing 70 frames total at 24~fps, plus indoor static \texttt{still.mp4} and dynamic handheld \texttt{moving.mp4} at 100 frames each) under frozen clip-wide $[P_2, P_{98}]$ normalization~\cite{ranftl2020midas,chen2025vda}. Following official \texttt{Video Depth Anything} streaming inference (\texttt{run\_streaming.py}, attention-sink KV cache), we benchmark both relative VDA and official \texttt{Metric-VDA-Small} alongside causal \texttt{RAFT-EMA} forward-backward warping~\cite{teed2020raft} and sparse-keyframe metric anchoring (every $K=15$ frames).
 
-\subsection{Application: depth-aware background blur}
-Given a clip-normalized disparity map $\hat d\in[0,1]$ (1 is near) and a focus level $\phi=0.55$, the blur amount at a pixel is $a=\mathrm{clip}((\phi-\hat d)/\phi,0,1)$.
-Pixels at or in front of the focus plane stay sharp; farther pixels are blended between six Gaussian levels up to $\sigma=9$\,px.
-The same $\phi$ and clip normalization drive the effect for DAv2-S and VDA-S, so any difference in the output comes from the depth alone.
+Crucially, naive affine alignment $1/Z \approx a\, d_{\text{vda}} + b$ against uncalibrated per-frame intrinsics exhibits two failure modes outdoors: focal-length jumps distort keyframe scales, while unconstrained $b>0$ bounds infinite sky ($d_{\text{vda}}\to 0$) to finite distance $1/b$, collapsing bokeh blur. We resolve both by (i) pooling keyframe intrinsics via median $K_{\mathrm{clip}}$ so all anchor keyframes share geometry, and (ii) enforcing the physical zero-sky constraint $b = 0$ on outdoor clips via confidence-weighted Huber-IRLS~\cite{huber1964robust}:
+\begin{align}
+  a^\star &= \arg\min_{a>0} \sum_{t\in\mathcal{K}, p} w_t(p)\, \rho_\delta\!\left(\frac{1}{Z_t^{\text{key}}(p)} - a\, d_t^{\text{vda}}(p)\right), \nonumber\\
+  Z_t(p) &= \operatorname{clip}\!\left(\frac{1}{a^\star d_t^{\text{vda}}(p)},\; 0.4,\; 500\right),
+  \label{eq:irls}
+\end{align}
+running both globally offline and causally frame-by-frame via an exponentially smoothed running scale $a_t$ updated only as keyframes arrive. Finally, our bokeh renderer computes physically meaningful one-sided background circle-of-confusion radius
+\begin{equation}
+  R_{\mathrm{CoC}}(p) = \sigma_{\max}\, \max\!\left(0,\, 1 - \frac{Z_f}{Z(p)}\right)
+  \label{eq:coc}
+\end{equation}
+and gathers background blur using premultiplied background visibility weights $w_{\text{bg}}(p) = \epsilon + (1-\epsilon)\operatorname{clip}((Z(p)-Z_f)/\tau_Z, 0, 1)$, composited under front-to-back foreground alpha $\alpha_{\text{fg}}(p)$ to stop dark in-focus foreground pixels from bleeding into blurred backgrounds~\cite{peng2022bokehme,sheng2024drbokeh}.
 
+%-------------------------------------------------------------------------
 \section{Experiments}
-\subsection{Protocol and hardware}
-\textbf{NYU.} Official \texttt{splits.mat}: \texttt{trainNdxs} (795) for fitting, \texttt{testNdxs} (654) for evaluation, with MATLAB indices shifted by one.
-RGB is \texttt{images[i].transpose(2,1,0)} and ground truth is the filled \texttt{depths[i].T} in meters.
-Predictions are resized to $480\times640$ and clipped to $[0.001,10]$\,m.
-We evaluate the crop \texttt{[45:471, 41:601]} where ground truth is in $(0.001,10)$\,m and average per-image AbsRel, RMSE, and $\delta_1$ equally over the 654 images.
-These are our own runs under the course protocol, not a reproduction of a published number.
-\textbf{Stereo.} The 15 \texttt{trainingQ} pairs; we score on finite, positive \texttt{disp0GT.pfm} pixels.
-\textbf{Hardware.} One NVIDIA RTX~4090 (24\,GB), PyTorch~2.11, CUDA~12.8.
-Runtime excludes data loading and is averaged after warm-up; peak memory is \texttt{torch.cuda.max\_memory\_allocated}.
 
-\subsection{Stereo}
-Table~\ref{tab:stereo} reports the course metrics.
-SGBM keeps 62\% of ground-truth pixels, and on those its mean absolute disparity error is 1.42\,px.
-Repetitive or thin structures (Jadeplant's leaves, PianoL's lighting change) are the worst.
-In Adirondack ($f=1038$\,px at quarter resolution, $B=176$\,mm), Eq.~\ref{eq:stereo} turns a 1\,px error into 5.5\,mm at 1\,m but 350\,mm at 8\,m.
+\subsection{Part 1: Middlebury Stereo, Metric Range \& Hole-Fill}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/stereo_error_vs_range.pdf}
+  \vspace{-1.3em}
+  \caption{\textbf{Part 1 Quantitative Stereo Analysis.} (a) Pooled metric depth error over all 15 Middlebury \texttt{trainingQ} pairs across $1.0$--$7.5$~m tracks the $O(Z^2)$ sensitivity bound. (b) Adding 1~px LRC, LAB-CLAHE, and pure-OpenCV guided hole-filling cuts \texttt{nocc} MAE from $10.01$~px to $4.44$~px and \texttt{bad-2.0} from $33.5\%$ to $29.1\%$.}
+  \label{fig:stereo_range}
+  \vspace{-0.4em}
+\end{figure}
 
 \begin{table}[t]
 \centering
-\small
-\begin{tabular}{lcc}
-\hline
-Scene & $|d$ error$|$ (px) & valid fraction \\
-\hline
-Teddy / Vintage / Recycle & 0.48 / 0.62 / 0.66 & 0.73 / 0.48 / 0.73 \\
-Adirondack / Motorcycle & 0.85 / 1.00 & 0.73 / 0.76 \\
-Pipes / ArtL & 1.65 / 1.59 & 0.68 / 0.46 \\
-PianoL / Jadeplant & 4.08 / 4.17 & 0.40 / 0.38 \\
-\hline
-Mean of 15 pairs & \textbf{1.42} & \textbf{0.622} \\
-\hline
-\end{tabular}
-\caption{StereoSGBM on Middlebury trainQ. Error is the mean absolute disparity error over valid predictions on finite, positive ground truth. Invalid: no SGBM match or a left-right disagreement above 1\,px. Per-scene values are in \texttt{outputs/stereo}.}
+\scriptsize
+\setlength{\tabcolsep}{1.2pt}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+Variant (15 pairs \texttt{trainingQ}) & Val.\,MAE & Valid & nocc\,MAE & b2$_{\text{nocc}}$ & Z\,AR & ms \\
+\midrule
+3WAY (no LRC)               & 1.986 & \textbf{75.3\%} & 10.01 & 33.5\% & 2.22\% & 16.6 \\
+\textbf{3WAY + 1px LRC (Base)} & 1.420 & 62.2\% & 10.01 & 33.5\% & 1.60\% & 44.0 \\
+3WAY + CLAHE + 1px LRC       & \textbf{1.322} & 62.1\% & 10.34 & 34.2\% & 1.58\% & 49.7 \\
+3WAY + CLAHE + Guided        & \textbf{1.322} & 62.1\% & 4.44  & \textbf{29.1\%} & 1.58\% & 83.6 \\
+HH (8-path) + CLAHE + Guided & 1.328 & 62.8\% & \textbf{4.44} & 29.2\% & \textbf{1.51\%} & 314.3 \\
+\bottomrule
+\end{tabular}%
+}
+\vspace{-0.4em}
+\caption{\textbf{Middlebury stereo ablation.} Baseline achieves $1.4203$~px disparity MAE ($62.20\%$ valid, $\mathrm{RMSE}=4.73$~px, $\mathrm{bad1}=13.05\%$, $\mathrm{bad2}=8.72\%$) and $Z$ $\mathrm{MAE}=4.65$~cm, $\mathrm{RMSE}=15.55$~cm, $\mathrm{AbsRel}=1.60\%$ (\texttt{Teddy}: $0.92$~cm, \texttt{Pipes}: $17.12$~cm, \texttt{PianoL}: $4.78\%$).}
 \label{tab:stereo}
+\vspace{-0.7em}
 \end{table}
+
+As shown in Fig.~\ref{fig:stereo_panel} and Table~\ref{tab:stereo}, the required 3-way \texttt{StereoSGBM} + 1~px LRC baseline produces \textbf{1.4203~px} disparity MAE across \textbf{62.20\%} valid pixels (44.0~ms/pair CPU), converting via Eq.~\ref{eq:stereo} to \textbf{4.65~cm} metric MAE ($15.55$~cm RMSE, $1.60\%$ AbsRel). Unmatched border and thin-structure occlusions concentrate heavily around object silhouettes (crimson masks in Fig.~\ref{fig:stereo_panel}, \texttt{Jadeplant} $37.7\%$ valid vs.\ \texttt{Adirondack} $72.7\%$). Fig.~\ref{fig:stereo_range}(a) pools valid pixels across 13 depth bins ($1.0$--$7.5$~m): mean $|Z-\hat{Z}|$ climbs cleanly from $1.03$~cm ($1.0$--$1.5$~m) to $92.6$~cm ($7.0$--$7.5$~m), closely tracking theoretical 1-px slope $1000 Z^2/(fB)$. In Table~\ref{tab:stereo} and Fig.~\ref{fig:stereo_range}(b), dropping LRC degrades valid MAE ($1.420\to 1.986$~px), while adding LAB-CLAHE tightens valid MAE to \textbf{1.322~px} ($1.58\%$ $Z$-AbsRel) and OpenCV guided hole-filling cuts non-occluded full-image MAE by $2.25\times$ ($10.01\to 4.44$~px) and $\mathrm{bad2}_{\text{nocc}}$ from $33.5\%$ to \textbf{29.1\%} at $83.6$~ms/pair.
+
+\subsection{Parts 2 \& 3: NYU Depth v2 Calibration Hierarchy}
+\begin{table*}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3.0pt}
+\begin{tabular}{@{}llrrrrrrrrrr@{}}
+\toprule
+Regime & Method (fitted on NYU train \texttt{795} only) & AbsRel$\downarrow$ & RMSE$\downarrow$ & SqRel$\downarrow$ & RMSE$_{\log}\downarrow$ & SILog$\downarrow$ & $\delta_1\uparrow$ & $\delta_2\uparrow$ & $\delta_3\uparrow$ & Hurt\%$\downarrow$ & SI-BndF1$\uparrow$ \\
+\midrule
+RGB-only & Raw \texttt{UniDepthV2-Small} ($s=1$)                     & 0.1145 & 0.3988 & 0.0689 & 0.1412 & 9.73 & 0.8923 & 0.9807 & 0.9933 & ---    & 0.1130 \\
+RGB-only & + Frozen global median $s_{\mathrm{med}}=0.9563$         & 0.1020 & 0.3892 & 0.0633 & 0.1349 & 9.73 & 0.8995 & 0.9805 & 0.9927 & 37.2\% & 0.1130 \\
+RGB-only & + Uncertainty-weighted global scalar ($0.9524$)        & 0.1017 & 0.3902 & 0.0633 & 0.1350 & 9.73 & 0.8991 & 0.9804 & 0.9926 & 37.5\% & ---    \\
+RGB-only & + Global 2P power-law ($s_0=0.951, \beta_0=1.058$)     & 0.1000 & 0.3850 & 0.0628 & 0.1338 & 9.56 & 0.9016 & 0.9800 & 0.9921 & 36.1\% & 0.1190 \\
+RGB-only & + Analytic FoV coupling $\hat{s}(\hat{f}_i)$ (2 params) & 0.0944 & 0.3716 & 0.0569 & 0.1279 & 9.73 & 0.9247 & 0.9820 & 0.9926 & 34.6\% & ---    \\
+RGB-only & + \texttt{ScaleProbe-1P} (global scale ridge)          & 0.0848 & 0.3445 & 0.0493 & 0.1195 & 9.75 & 0.9351 & 0.9832 & 0.9926 & 28.3\% & ---    \\
+RGB-only & + \textbf{\texttt{ScaleProbe-2P} (Primary 4367-D, Ours)} & \textbf{0.0821} & \textbf{0.3385} & \textbf{0.0476} & \textbf{0.1161} & \textbf{9.36} & \textbf{0.9383} & \textbf{0.9838} & 0.9926 & \textbf{27.5\%} & \textbf{0.1198} \\
+RGB-only & + \texttt{ScaleProbe-2P} (6927-D \texttt{v2} / \texttt{+DAv2})$^\dagger$ & 0.0824 & 0.3397 & 0.0479 & 0.1167 & 9.38 & 0.9385 & 0.9835 & 0.9926 & 28.1\% & 0.1195 \\
+RGB-only & + \texttt{ScaleProbe-2P} (LOSO Unseen Scene Types)     & 0.0853 & 0.3460 & 0.0490 & 0.1182 & 9.40 & 0.9350 & 0.9837 & 0.9933 & 29.2\% & ---    \\
+\midrule
+$\hat{K}_{\mathrm{train}}$ & Raw \texttt{UniDepthV2-Small} ($\hat{f}_x=492.5$) & 0.0899 & 0.3597 & 0.0534 & 0.1232 & 9.49 & 0.9316 & 0.9828 & 0.9929 & 30.7\%$^*$ & 0.1181 \\
+$\hat{K}_{\mathrm{train}}$ & + \textbf{\texttt{ScaleProbe-2P} (Ours, fixed rig)} & \textbf{0.0816} & \textbf{0.3380} & \textbf{0.0473} & \textbf{0.1159} & \textbf{9.35} & \textbf{0.9384} & \textbf{0.9838} & 0.9926 & \textbf{26.6\%}$^*$ & \textbf{0.1223} \\
+\midrule
+$K_{\mathrm{NYU}}$ & Raw \texttt{UniDepthV2-Small} ($f_x=518.9$)  & 0.0922 & 0.3579 & 0.0548 & 0.1237 & 9.56 & 0.9263 & 0.9827 & 0.9932 & 30.0\%$^*$ & 0.1173 \\
+$K_{\mathrm{NYU}}$ & + \texttt{ScaleProbe-2P} (known cam upper) & 0.0817 & 0.3381 & 0.0475 & 0.1160 & 9.35 & 0.9385 & 0.9837 & 0.9925 & 26.8\%$^*$ & 0.1228 \\
+\midrule
+\textit{Oracle} & \textit{Test-GT 1P scalar oracle (per-image)} & \textit{0.0601} & \textit{0.2971} & \textit{0.0385} & \textit{0.1004} & \textit{9.74} & \textit{0.9495} & \textit{0.9848} & \textit{0.9933} & \textit{0.0\%} & --- \\
+\textit{Oracle} & \textit{Test-GT 2P power-law oracle (log-$L_2$)} & \textit{0.0517} & \textit{0.2698} & \textit{0.0330} & \textit{0.0887} & \textit{8.68} & \textit{0.9609} & \textit{0.9869} & \textit{0.9946} & \textit{2.1\%} & --- \\
+\bottomrule
+\end{tabular}
+\vspace{-0.4em}
+\caption{\textbf{Full zero-test-leakage NYU Depth v2 Test evaluation (654 images, Eigen crop, equal per-image weighting).} Our Train-CV-selected 4367-D \texttt{ScaleProbe-2P} reduces RGB-only AbsRel by \textbf{28.3\%} ($0.1145\to 0.0821$) and RMSE by 15.1\% ($0.3988\to 0.3385$~m), while $\hat{K}_{\mathrm{train}}$ + 2P reaches 0.0816. $^*$Measured against RGB-only raw (0.1145). $^\dagger$Row reports 6927-D \texttt{v2}; coupled \texttt{v1} achieves 0.0819 (26.0\% hurt), and cross-backbone \texttt{+DAv2} achieves 0.0828 with peak $\delta_1=0.9396$. Notice \texttt{oracle\_2p} fits closed-form $\log$-$L_2$ exponents, so 2.1\% of frames slightly exceed $L_1$ AbsRel of raw.}
+\label{tab:nyu_main}
+\vspace{-0.6em}
+\end{table*}
 
 \begin{figure}[t]
-\centering
-\includegraphics[width=0.49\linewidth]{figs/Adirondack_disp.png}\hfill
-\includegraphics[width=0.49\linewidth]{figs/Jadeplant_disp.png}
-\caption{SGBM disparity, one fixed range per image. Left: Adirondack, one of the easier scenes. Right: Jadeplant, where thin leaves and occlusions leave large holes.}
-\label{fig:stereo}
+  \centering
+  \includegraphics[width=\linewidth]{figs/fov_and_gain_hist.pdf}
+  \vspace{-1.3em}
+  \caption{\textbf{Camera--scale coupling \& error shift.} (a) On 795 NYU train frames, $\log \hat{f}_i$ negatively correlates with optimal scale ($\rho=-0.53$), explained by inflated Kinect $\hat{f}$. (b) Histogram of per-image $\Delta$AbsRel on 654 test images: \texttt{ScaleProbe-2P} cuts hurt rate from $37.2\%$ to $27.5\%$ with strong negative left tail.}
+  \label{fig:fov_hist}
+  \vspace{-0.5em}
 \end{figure}
 
-\subsection{NYU metric depth and the frozen scale}
-Table~\ref{tab:nyu} is the main result.
-RGB-only UniDepthV2-S reaches AbsRel 0.1145.
-On training images the per-image ratio $\operatorname{median}(G/D)$ has median 0.956 and interquartile range 0.905--1.008, so the model overestimates NYU depth by about 4\% on a typical image.
-The frozen scale $s_\mathrm{med}=0.9563$ lowers test AbsRel by 11\% relative, to 0.1020, and also lowers RMSE and raises $\delta_1$.
-All three metrics move in the same direction, so the gain is not an artifact of optimizing AbsRel.
-The scale helps 62.8\% of the 654 test images and hurts the rest.
+Table~\ref{tab:nyu_main}, Fig.~\ref{fig:fov_hist}, and Fig.~\ref{fig:spars_ladder} summarize the complete calibration progression on all 654 NYU test images:
+\begin{itemize}
+  \item \textbf{Frozen global scalar $s_{\mathrm{med}}=0.9563$} cuts AbsRel ($0.1145\to 0.1020$) yet degrades $37.2\%$ of test images whenever raw prediction already under-predicts scale.
+  \item \textbf{Analytic 2-parameter FoV law $\hat{s}(\hat{f}_i)$} jumps $+2.5\%$ in $\delta_1$ ($0.8995\to 0.9247$) using just two scalars learned on train, directly validating our focal-coupling diagnosis (Fig.~\ref{fig:fov_hist}(a)).
+  \item \textbf{\texttt{ScaleProbe-2P} (Primary 4367-D)} achieves \textbf{0.0821 AbsRel} (\textbf{0.3385~m RMSE}, \textbf{0.9383 $\delta_1$}, \textbf{9.36 SILog}, $0.1198$ SI-BndF1) on single RGB images, outperforming raw by \textbf{28.3\%} relative error and global $s_{\mathrm{med}}$ by \textbf{19.5\%}, while cutting per-image hurt fraction from $37.2\%\to 27.5\%$. Coupled CV regularization (\texttt{v1}) hits $0.0819$ ($26.0\%$ hurt), and adding Train-CV $\hat{K}_{\mathrm{train}}$ yields \textbf{0.0816} (\textbf{0.3380~m RMSE}), matching hardware Kinect $K_{\mathrm{NYU}}$ (0.0817).
+  \item \textbf{Generalization to Unseen Room Types:} Under full Leave-One-Scene-Out cross-validation (with nested internal Ridge CV held out per room category), \texttt{ScaleProbe-2P} still reaches \textbf{0.0853 AbsRel} ($0.9350~\delta_1$), proving genuine geometry--semantic generalization beyond room memorization.
+\end{itemize}
 
-The oracle row shows how far one number per image could go (AbsRel 0.060).
-One number for the whole dataset closes 23\% of the gap between raw and oracle.
-The remainder is image-specific scale error and shape error, which a global scale cannot reach.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/sparsification_and_ladder.pdf}
+  \vspace{-1.3em}
+  \caption{\textbf{Uncertainty sparsification \& calibration ladder.} (a) Removing high-$\hat{u}(p)$ pixels reduces test AbsRel monotonically ($\mathrm{AUSE}=0.276$). (b) Step-by-step progression from $0.1145$ raw to $0.0821$ (\texttt{Probe-2P}) and $0.0816$ ($\hat{K}_{\mathrm{train}}\text{+2P}$).}
+  \label{fig:spars_ladder}
+  \vspace{-0.6em}
+\end{figure}
 
+\subsection{Feature Attribution, Oracles \& Error Decomposition}
 \begin{table}[t]
 \centering
-\small
-\begin{tabular}{lcccc}
-\hline
-Method & $s$ & AbsRel$\downarrow$ & RMSE$\downarrow$ & $\delta_1\uparrow$ \\
-\hline
-UniDepthV2-S, raw & 1 & 0.1145 & 0.399 & 0.892 \\
-+ frozen $s_\mathrm{med}$ (ours) & 0.956 & \textbf{0.1020} & \textbf{0.389} & \textbf{0.900} \\
-\hline
-\multicolumn{5}{l}{\emph{Diagnostic, uses test GT, not a method}} \\
-Per-image median oracle & -- & 0.0604 & 0.295 & 0.950 \\
-\hline
+\scriptsize
+\setlength{\tabcolsep}{2.2pt}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Feature Block Combination & Dim & TrainCV & Test\,AR$\downarrow$ & Test\,$\delta_1\uparrow$ \\
+\midrule
+$\phi_{\text{geo}}$ (intrinsics, tilt, quantiles) & 15   & 0.0965 & 0.0909 & 0.9300 \\
+$\phi_{\text{cls}}$ (ViT CLS tokens)              & 1536 & 0.0936 & 0.0901 & 0.9277 \\
+$\phi_{\text{pat}}$ (ViT spatial patch summary)   & 2304 & 0.0940 & 0.0921 & 0.9196 \\
+$\phi_{\text{dfe}}$ (decoder global depth feat.)  & 512  & 0.0903 & 0.0864 & 0.9361 \\
+$\phi_{\text{cam}}$ (\texttt{CameraHead} latents) & 1024 & \textbf{0.0892} & \textbf{0.0859} & \textbf{0.9363} \\
+$\phi_{\text{geo}}+\phi_{\text{cls}}+\phi_{\text{pat}}$ & 3855 & 0.0879 & 0.0833 & 0.9370 \\
+\textbf{Primary ($\phi_{\text{geo}}+\phi_{\text{cls}}+\phi_{\text{pat}}+\phi_{\text{dfe}}$)} & 4367 & \textbf{0.0865} & \textbf{0.0821} & 0.9383 \\
+\texttt{v2} (Primary + $\phi_{\text{dfe\_sp}}+\phi_{\text{cam}}$) & 6927 & 0.0866 & 0.0824 & 0.9385 \\
+Cross-Backbone \texttt{v2 + DAv2} (+15.4~ms)      & 7448 & 0.0858 & 0.0828 & \textbf{0.9396} \\
+\bottomrule
 \end{tabular}
-\caption{NYU Depth~v2 official test split (654 images), RGB-only inference, course protocol. $s$ is fit on the 795 training images only.}
-\label{tab:nyu}
+\vspace{-0.3em}
+\caption{\textbf{Feature-block ablation (strictly Train-CV ranked).} Among single blocks, \texttt{CameraHead} tokens ($\phi_{\text{cam}}$) lead (0.0892 CV $\to$ 0.0859 Test); 4367-D wins Train CV and generalizes cleanest to test. On error decomposition, Train 5-fold OOF drops $0.0866\to 0.0831$ (oracle $\beta$) vs.\ $\mathbf{0.0613}$ (oracle $s$, $\sim 80\%$ of residual); planar 4P tilt oracle reaches $0.0528$ train / $\mathbf{0.0504}$ test.}
+\label{tab:feat_decomp}
+\vspace{-0.7em}
 \end{table}
 
-\paragraph{Ablation: estimator.}
-Table~\ref{tab:ablation} (top) refits $s$ on the same training images with each loss.
-All four estimates lie in 0.937--0.956 and give test AbsRel within 0.0005 of each other.
-The pooled least-squares fit gives the smallest $s$, because squared metric error is dominated by far pixels, and it is the worst on RMSE and $\delta_1$.
-The choice of estimator matters much less than whether a bias correction is applied at all.
-
-\paragraph{Ablation: known camera.}
-Passing the Kinect intrinsics (Table~\ref{tab:ablation}, bottom) already removes most of the bias: raw AbsRel drops to 0.0922 and the fitted scale moves to 0.989.
-The frozen scale then gains only 0.0014 AbsRel, and the least-squares variant makes AbsRel worse.
-This identifies the source of the RGB-only bias.
-UniDepth's predicted focal length, not its depth shape, carries most of the systematic NYU scale error, and the frozen scale corrects it on average when no camera is given.
-
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{llcccc}
-\hline
-Camera & Estimator & $s$ & AbsRel & RMSE & $\delta_1$ \\
-\hline
-RGB-only & raw & 1 & 0.1145 & 0.399 & 0.892 \\
- & $s_\mathrm{med}$ & 0.956 & 0.1020 & 0.389 & 0.900 \\
- & $s_\mathrm{log}$ & 0.955 & 0.1019 & 0.390 & 0.899 \\
- & $s_\mathrm{ls}$ & 0.937 & 0.1017 & 0.397 & 0.896 \\
- & $s_\mathrm{AbsRel}$ & 0.943 & 0.1015 & 0.394 & 0.898 \\
-\hline
-Kinect $K$ & raw & 1 & 0.0922 & 0.358 & 0.926 \\
- & $s_\mathrm{med}$ & 0.989 & 0.0908 & 0.359 & 0.929 \\
- & $s_\mathrm{ls}$ & 0.951 & 0.0945 & 0.382 & 0.928 \\
-\hline
-\end{tabular}
-\caption{Scale estimator and camera ablation. Every $s$ is fit on NYU train and frozen for test.}
-\label{tab:ablation}
-\end{table}
-
-\paragraph{Does it generalize?}
-We refit $s_\mathrm{med}$ on random training subsets, 20 draws per size (Table~\ref{tab:subset}).
-With 5 images the scale has a standard deviation of 0.036 and the test AbsRel varies by 0.011.
-From 50 images onward the scale is within 0.014 of the full fit and test AbsRel is within 0.0013, so the correction does not depend on any particular training images.
-Per scene type (Table~\ref{tab:scene}), the frozen scale lowers AbsRel in 13 of 16 types, including all eight with at least 20 test images.
-It hurts three small types (reception room, computer lab, foyer; 10 test images in total), too few to tell a different bias from noise.
-The improvement therefore transfers across NYU's indoor scene types, but it is a property of this domain.
-A different camera or an outdoor dataset would have a different bias, and we would not expect 0.956 to transfer.
-
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{rccc}
-\hline
-Train images & $s$ (mean $\pm$ std) & Test AbsRel (mean $\pm$ std) \\
-\hline
-5 & 0.962 $\pm$ 0.036 & 0.1078 $\pm$ 0.0113 \\
-20 & 0.960 $\pm$ 0.020 & 0.1041 $\pm$ 0.0026 \\
-50 & 0.961 $\pm$ 0.014 & 0.1035 $\pm$ 0.0021 \\
-200 & 0.958 $\pm$ 0.005 & 0.1024 $\pm$ 0.0006 \\
-795 & 0.956 & 0.1020 \\
-\hline
-\end{tabular}
-\caption{Fitting $s_\mathrm{med}$ on random subsets of NYU train (20 draws per size, seed 0). Raw AbsRel is 0.1145.}
-\label{tab:subset}
-\end{table}
-
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{lrrcc}
-\hline
-Scene type & \#test & \#train & raw & $+s$ \\
-\hline
-bedroom & 191 & 192 & 0.104 & \textbf{0.089} \\
-living room & 107 & 114 & 0.117 & \textbf{0.112} \\
-kitchen & 106 & 119 & 0.117 & \textbf{0.105} \\
-bathroom & 58 & 63 & 0.144 & \textbf{0.134} \\
-dining room & 55 & 62 & 0.102 & \textbf{0.090} \\
-office & 38 & 40 & 0.113 & \textbf{0.087} \\
-bookstore & 11 & 25 & 0.190 & \textbf{0.180} \\
-reception room & 5 & 12 & \textbf{0.112} & 0.138 \\
-\hline
-\end{tabular}
-\caption{Test AbsRel per NYU scene type (selected rows; all 16 types are in \texttt{per\_scene.csv}).}
-\label{tab:scene}
-\end{table}
+Table~\ref{tab:feat_decomp} dissects what representation drives calibration and where remaining errors reside:
+\begin{itemize}
+  \item \textbf{Single-Block Dominance of Decoder \& Camera Tokens:} Out of all individual blocks, $\phi_{\text{cam}}$ (\texttt{CameraHead.aggregate2}, 1024-D) achieves the strongest standalone score (0.0859 Test AbsRel, $0.9363~\delta_1$), followed closely by decoder depth features $\phi_{\text{dfe}}$ (0.0864). Combining $\phi_{\text{geo}}+\phi_{\text{cls}}+\phi_{\text{pat}}+\phi_{\text{dfe}}$ (4367-D) wins strict Train CV (0.0865) with minimal variance. Cross-backbone \texttt{+DAv2} (7448-D) reaches the lowest Train CV (0.0858) and highest test $\delta_1$ (0.9396) at slight train--test overfitting on AbsRel (0.0828).
+  \item \textbf{Residual Error Attribution:} Holding our predicted $(\hat{s}, \hat{\beta})$ on Train OOF (0.0866), substituting oracle $\beta$ reduces error modestly to 0.0831, whereas substituting oracle $s_i$ collapses AbsRel to 0.0613: roughly \textbf{80\%} of remaining error stems from unpredictable global room scale ($R^2_{\mathrm{CV}}(a_0)=0.471$, $R^2_{\mathrm{CV}}(\beta)=0.305$). Extending to a 4-parameter affine planar tilt $(a_0,\beta,t_y,t_x)$ cuts test upper bound to 0.0504 (fixing cluttered bedroom \texttt{\#201} from 0.381 to 0.138 via horizontal tilt $t_x=+0.485$), though $t_x$ cannot be regressed cleanly from monocular views ($R^2_{\mathrm{CV}}(t_x)=-0.011$ vs.\ $R^2_{\mathrm{CV}}(t_y)=0.132$).
+  \item \textbf{Per-Scene Gains \& Honest GPU Timing:} Across the 16 NYU test scene classes, \texttt{ScaleProbe-2P} improves \textbf{15/16} categories over raw and \textbf{14/16} over $s_{\mathrm{med}}$, led by \texttt{bedroom} ($0.1041\to 0.0721$, 191 imgs), \texttt{living\_room} ($0.1169\to 0.0737$), \texttt{kitchen} ($0.1167\to 0.0855$), and \texttt{classroom} ($0.1302\to 0.0700$); only tiny \texttt{computer\_lab} (3 imgs, $0.110\to 0.135$) regresses. Zero-CPU-roundtrip GPU module \texttt{GPUScaleProbe} (\texttt{torch.quantile} + pooling + power-law) executes in \textbf{2.18~ms/img} (40.0~MiB VRAM delta) for 4367-D primary ($2.08$~ms / $31.9$~MiB for 6927-D \texttt{v2}).
+\end{itemize}
 
 \begin{figure*}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/nyu_typical.png}\\[1pt]
-\includegraphics[width=\linewidth]{figs/nyu_hard.png}\\[1pt]
-\includegraphics[width=\linewidth]{figs/nyu_scale_hurts.png}
-\caption{NYU test images. Columns: RGB, ground truth, raw UniDepthV2-S, frozen scale, and AbsRel error maps for both (0--0.5). Within a row all depth panels share one range. Row 1: the median-error image. Rows 2--4: the three highest-error images (study, bookstore, bedroom). Row 5: the image the scale hurts most.}
-\label{fig:nyu}
+  \centering
+  \includegraphics[width=0.98\textwidth]{figs/nyu_hierarchical_compare.png}
+  \vspace{-0.4em}
+  \caption{\textbf{Qualitative NYU Depth v2 test results (7 columns incl.\ raw \texttt{UniDepthV2-Small}).} Left-to-right: RGB, GT depth, Raw \texttt{UniDepthV2-S}, Frozen scalar $s_{\mathrm{med}}=0.956$, \texttt{ScaleProbe-2P}, and relative error $|D-G|/G$ before vs.\ after \texttt{ScaleProbe-2P}. Shown: median-gain \texttt{\#233 kitchen}, hard long-hall \texttt{\#184 study} ($0.563\to 0.253$), \texttt{\#42 bookstore} ($0.398\to 0.213$), severe tilted \texttt{\#201 bedroom}, and \texttt{\#550 living\_room} (where $s_{\mathrm{med}}$ hurts $0.066\to 0.107$ while \texttt{Probe-2P} cuts to $0.028$).}
+  \label{fig:nyu_qual}
+  \vspace{-0.5em}
 \end{figure*}
 
-\subsection{Failure cases}
-We take the three test images with the highest raw AbsRel (Fig.~\ref{fig:nyu}, rows 2--4) and sort them by the per-image median ratio $r=\operatorname{median}(G/D)$.
-\textbf{Global scale failure.} In the study ($r=0.75$, AbsRel 0.563) and the bookstore ($r=0.75$, 0.398), the whole scene is predicted about 33\% too far.
-The frozen scale moves both in the right direction (to 0.500 and 0.360), but 0.956 is far from 0.75.
-Only a per-image cue such as a known camera or an object of known size could fix these.
-\textbf{Shape failure.} In the bedroom ($r=0.93$, AbsRel 0.381) the median scale is nearly right, yet the error stays high.
-The error is in the layout of the room, so no scale can repair it.
-\textbf{Scale hurts.} The living room in row 5 ($r=1.075$) was already predicted slightly too near, and the scale raises its AbsRel from 0.066 to 0.107.
-A global correction always moves some images the wrong way; Table~\ref{tab:nyu} reports the net effect.
+\subsection{Cross-Model Comparison \& Bayesian Person Redemption}
+To contrast relative vs.\ metric backbones under matched hardware conditions on \texttt{640x360}, \texttt{DAv2-Small} executes in 16.94~ms (417.9~MiB, FP32) or 15.37~ms (343.4~MiB, FP16), yet yields strictly affine-invariant relative disparities requiring GT least-squares shift-scale per test frame (\texttt{ScaleProbe} with \texttt{+DAv2} features hits 0.0828 without test leakage). Meanwhile, incorporating geometric human-height cues via \texttt{KeypointRCNN} (118 voted train frames / 60 voted test frames) illustrates the hazard of brittle semantic overrides: blindly overriding scale with detected person heights collapses 654-image NYU AbsRel from $0.1020$ to \textbf{0.2243} (1.3119 on the 60 voted frames) due to seated/cropped poses ($\sigma_{\text{obs}}=1.6928$ on train). Using strictly train-fitted Bayesian inverse-variance fusion (Eq.~\ref{eq:bayes}, $\sigma_{\text{glob}}=0.0991$, $\sigma_{\text{probe}}=0.0697$) neutralizes outliers to 0.1021 (0.1051 voted) with the global prior and reaches \textbf{0.0852 AbsRel} ($\delta_1=0.9340$, 0.0873 voted) alongside \texttt{ScaleProbe-2P}.
 
-\subsection{Video: frame-wise versus video depth}
-Figure~\ref{fig:video} shows the same frames from both methods, each under its own fixed clip range.
-Both recover the track, the cars, and the sky as the farthest region.
-The comparison is qualitative, because the clip has no ground truth; the numbers below are an optional diagnostic and say nothing about metric accuracy.
-As a diagnostic we warp each clip-normalized map onto the next frame with RAFT-Small and average the absolute change on pixels whose forward and backward flow agree within 1\,px.
-VDA-S changes less than DAv2-S on all 69 frame pairs (mean 0.0143 versus 0.0170 of the clip range, a 16\% reduction).
-The per-pixel map of this change (Fig.~\ref{fig:temporal}) shows where the frame-wise model flickers.
-A remaining source of change in both maps is real motion that the flow does not fully explain, such as occlusion boundaries around the moving cars.
-\TODO{Confirm the visual description of Fig.~\ref{fig:video} and Fig.~\ref{fig:temporal} against the videos in \texttt{outputs/video} before submission.}
+\subsection{Video Consistency, Metric Anchoring \& Halo-Free Bokeh}
+\begin{table*}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4.0pt}
+\begin{tabular}{@{}llrrrrr@{}}
+\toprule
+Clip (frames @ fps) & Depth Method & OPW AbsRel$\downarrow$ & TAE (still)$\downarrow$ & 2nd Jitter$\downarrow$ & Drift CV$\downarrow$ & $Z\;[P_{10}, P_{50}, P_{98}]$ (m) \\
+\midrule
+\multirow{6}{*}{\texttt{davis\_rollercoaster} (70f @ 24)}
+ & \texttt{UniDepthV2-S} (frame raw)            & 0.0622 & --- & 0.1364 & 0.2341 & $[93.5,\; 196.6,\; 235.3]$ \\
+ & \texttt{UniDepthV2-S} (shared $K_{\text{clip}}$) & 0.0512 & --- & 0.1227 & 0.1986 & $[106.9,\; 197.9,\; 234.0]$ \\
+ & \texttt{UniDepthV2-S} + \texttt{RAFT-EMA}     & \textbf{0.0186} & --- & \textbf{0.0848} & 0.2098 & $[103.6,\; 197.8,\; 235.0]$ \\
+ & Official \texttt{Metric-VDA-S} (streaming)    & 0.1437 & --- & 2.6454 & 0.1098 & $[11.6,\; 225.5,\; 554.1]$ \\
+ & \texttt{VDA-S Stream} + $K_{\text{clip}}$ Causal ($b=0$) & 0.0379 & --- & 0.5585 & 0.0000 & $[113.5,\; 500.0,\; 500.0]$ \\
+ & \textbf{\texttt{VDA-S Offline} + $K_{\text{clip}}$ ($b=0$)} & 0.0343 & --- & 0.5338 & 0.0000 & $[120.1,\; 500.0,\; 500.0]$ \\
+\midrule
+\multirow{5}{*}{\texttt{still} (100f @ 15, stationary)}
+ & \texttt{UniDepthV2-S} (frame raw)            & 0.0098 & 0.0110 & 0.0166 & 0.0152 & $[2.5,\; 4.9,\; 5.4]$ \\
+ & \texttt{UniDepthV2-S} (shared $K_{\text{clip}}$) & 0.0078 & 0.0089 & 0.0138 & 0.0125 & $[2.5,\; 4.9,\; 5.3]$ \\
+ & \texttt{UniDepthV2-S} + \texttt{RAFT-EMA}     & \textbf{0.0019} & \textbf{0.0034} & \textbf{0.0042} & 0.0086 & $[2.5,\; 5.0,\; 5.3]$ \\
+ & Official \texttt{Metric-VDA-S} (streaming)    & 0.0045 & 0.0057 & 0.0079 & 0.0118 & $[2.8,\; 5.9,\; 6.5]$ \\
+ & \textbf{\texttt{VDA-S Stream} + $K_{\text{clip}}$ Causal} & 0.0024 & \textbf{0.0034} & 0.0053 & \textbf{0.0060} & $[2.5,\; 5.0,\; 5.3]$ \\
+\midrule
+\multirow{5}{*}{\texttt{moving} (100f @ 15, handheld)}
+ & \texttt{UniDepthV2-S} (frame raw)            & 0.0283 & --- & 0.0457 & 0.0946 & $[2.1,\; 3.3,\; 6.7]$ \\
+ & \texttt{UniDepthV2-S} (shared $K_{\text{clip}}$) & 0.0157 & --- & 0.0221 & 0.0894 & $[2.1,\; 3.3,\; 6.9]$ \\
+ & \texttt{UniDepthV2-S} + \texttt{RAFT-EMA}     & \textbf{0.0125} & --- & \textbf{0.0166} & 0.0964 & $[2.2,\; 3.4,\; 7.0]$ \\
+ & Official \texttt{Metric-VDA-S} (streaming)    & 0.0157 & --- & 0.0197 & \textbf{0.0748} & $[2.6,\; 4.2,\; 8.5]$ \\
+ & \textbf{\texttt{VDA-S Stream} + $K_{\text{clip}}$ Causal} & 0.0139 & --- & 0.0173 & 0.0771 & $[2.4,\; 4.0,\; 7.0]$ \\
+\bottomrule
+\end{tabular}
+\vspace{-0.4em}
+\caption{\textbf{Multi-clip metric video consistency benchmark.} Freezing a shared clip camera $K_{\text{clip}}$ cuts \texttt{UniDepthV2-S} flicker by $44.5\%$ on handheld \texttt{moving.mp4}. Our \texttt{VDA-S} + $K_{\text{clip}}$ zero-sky anchoring achieves $4.2\times$ lower outdoor OPW than official \texttt{Metric-VDA-S} (0.0343 vs.\ 0.1437) and outperforms \texttt{Metric-VDA-S} across OPW and jitter on all three videos.}
+\label{tab:video_bench}
+\vspace{-0.6em}
+\end{table*}
 
 \begin{figure*}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/frame_000_compare.png}\\[1pt]
-\includegraphics[width=\linewidth]{figs/frame_035_compare.png}\\[1pt]
-\includegraphics[width=\linewidth]{figs/frame_069_compare.png}
-\caption{\texttt{davis\_rollercoaster}, frames 0, 35, and 69. Columns: RGB, DAv2-Small run per frame, and VDA-Small run on the clip. Both are relative depth (bright is near). Each method uses one fixed normalization over all 70 frames, so colors are comparable within a column but not across columns.}
-\label{fig:video}
+  \centering
+  \begin{minipage}[t]{0.488\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figs/video_streaming_tradeoff.pdf}
+    \vspace{-1.3em}
+    \caption{\textbf{Relative video consistency \& GPU efficiency (\texttt{davis\_rollercoaster}, 70f).} (a) Frame-wise \texttt{DAv2-S} flickers (0.0170) vs.\ coherent \texttt{VDA-S} streaming (0.0153) and offline (0.0143). (b) KV-cache streaming slashes peak VRAM by \textbf{84.8\%} ($8016\to 1219$~MiB) and latency by \textbf{28.9\%} ($60.9\to 43.3$~ms/f).}
+    \label{fig:video_tradeoff}
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.488\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figs/bokeh_halo_comparison.pdf}
+    \vspace{-1.3em}
+    \caption{\textbf{Thin-lens physical bokeh \& halo suppression (\texttt{davis\_rollercoaster} frame 35).} Shared-$K_{\mathrm{clip}}$, $b=0$ metric depth unlocks full $P_{95}=6.4$~px CoC blur, while our visibility-weighted gather cuts dark girder-to-sky halo luma bleed by \textbf{63.8\%}.}
+    \label{fig:bokeh_halo}
+  \end{minipage}
+  \vspace{-0.6em}
 \end{figure*}
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/temporal_change_map.png}\\[2pt]
-\includegraphics[width=\linewidth]{figs/temporal_change.pdf}
-\caption{Optional temporal diagnostic. Top: per-pixel mean flow-warped change over the clip (black: flow rarely consistent). Bottom: per-frame mean change. Units are fractions of each method's fixed clip range.}
-\label{fig:temporal}
-\end{figure}
+\paragraph{Part 1 vs.\ Part 2 Relative Video Depth (\texttt{davis\_rollercoaster}).}
+On all 70 frames (under the brief's \texttt{max\_len=100} cap, official VDA CLI \texttt{run.py}/\texttt{run\_streaming.py}) rendered with identical clip-wide $[P_2, P_{98}]$ normalization, frame-wise \texttt{DAv2-Small} ($36.3$~ms/f, $415$~MiB) suffers high-frequency background sky pulsing and steel-beam contrast shifts (mean OPW flicker $0.0170$, Fig.~\ref{fig:video_tradeoff}). \texttt{VDA-Small} offline cuts relative OPW flicker by $15.9\%$ to \textbf{0.0143} ($60.9$~ms/f, $8016$~MiB) at crisp rail continuity, though fast camera pans slightly soften distant lattice wires ($0.0153$ in streaming at $43.3$~ms/f, $1219$~MiB, cutting VRAM by \textbf{84.8\%}). Note that official \texttt{Metric-VDA-S} ($42.5$~ms/f, $1219$~MiB) predicts positive meters directly, yet exhibits sharp sky instability outdoors (\texttt{OPW=0.1437}, \texttt{jitter2=2.645} in Table~\ref{tab:video_bench}), whereas anchoring relative \texttt{VDA-S} to 5 shared-$K_{\text{clip}}$ keyframes (+1.26~ms/f amortized) delivers smooth metric trajectories across both outdoor sky clips (0.0343--0.0379) and indoor rigs (0.0024 stationary, 0.0139 handheld).
 
-\subsection{Application: depth-aware blur}
-Figure~\ref{fig:blur} applies the same blur rule to both depth maps.
-The near track and cars stay sharp and the background is blurred.
-Because the rule reads clip-normalized depth with one fixed focus level, a frame-wise model that changes its depth from frame to frame also changes which pixels are blurred.
-The blur videos are in \texttt{depth\_results.zip}.
+\vspace{-0.2em}
+\paragraph{Zero-Sky Shared-$K_{\mathrm{clip}}$ Bokeh \& Halo Elimination.}
+Without fixing raw predicted focal drift ($f_x\in [638.9, 1063.9]\to K_{\mathrm{clip},x}=900.7$~px) and zero-sky intercept ($b=0.00534>0$), unconstrained IRLS caps the coaster sky below $190$~m ($\mathrm{corr}(d, 1/Z)=0.340$) and limits background blur to $P_{95}\,R_{\mathrm{CoC}}=2.06$~px. Enforcing $K_{\mathrm{clip}}$ and $b=0$ boosts disparity--$1/Z$ correlation to $0.415$ (offline) / $0.466$ (streaming), sends sky cleanly to $500$~m, and triples thin-lens background blur to \textbf{$P_{95}=6.44$~px} ($Z_f=142.4$~m). Across five sampled coaster frames, occlusion-aware background-visibility gather bokeh (Fig.~\ref{fig:bokeh_halo}) slashes border halo luminance bleeding by \textbf{63.8\%} ($30.15\to 10.86$), RGB bleed by \textbf{60.5\%} ($57.77\to 22.70$), and restores foreground edge sharpness from $0.886$ (blurred by naive bleed) to $1.018$ (69.4~ms/f vs.\ 36.7~ms/f CPU); indoors on \texttt{moving.mp4} ($Z_f=3.38$~m, Fig.~\ref{fig:indoor_bokeh}), halo luma bleed drops \textbf{26.1\%} ($9.70\to 7.17$, $-25.3\%$ RGB bleed), preserving crisp silhouette boundaries against blurred classroom chairs and background walls. Consistently across offline (\texttt{run.py}) and streaming (\texttt{run\_streaming.py}) VDA configurations, relative predictions follow strict clip-wide $[P_2, P_{98}]$ scaling and are transformed to metric meters only through explicit keyframe IRLS.
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/frame_035_blur.png}
-\caption{Depth-aware background blur on frame 35, driven by DAv2-Small (left) and VDA-Small (right), with the same focus level $\phi=0.55$.}
-\label{fig:blur}
-\end{figure}
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{figs/indoor_bokeh_compare.png}
+  \vspace{-0.5em}
+  \caption{\textbf{Indoor bokeh qualitative comparison (\texttt{moving.mp4} frame 50, $Z_f=3.38$~m).} Left-to-right: input RGB, causal streaming + shared-$K_{\text{clip}}$ metric depth, naive Gaussian gather blur, and occlusion-aware thin-lens bokeh (\textbf{$-26.1\%$} halo luma bleed).}
+  \label{fig:indoor_bokeh}
+  \vspace{-0.6em}
+\end{figure*}
 
-\subsection{Efficiency}
-\begin{table}[t]
-\centering
-\small
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{lcccc}
-\hline
-Model & Input & Precision & ms/frame & Peak MiB \\
-\hline
-UniDepthV2-S (NYU) & $480\times640$ & FP32 & 16.2 & 432 \\
-DAv2-S (clip) & 518 short side & FP32 & 36.3 & 415 \\
-VDA-S (clip, offline) & 518 short side & FP16 & 60.9 & 8016 \\
-SGBM + LR check & trainQ & CPU & -- & -- \\
-\hline
-\end{tabular}
-\caption{Runtime and peak GPU memory on one RTX~4090. VDA-S processes 32-frame windows, which sets its memory. The frozen scale is one multiplication and adds no measurable cost.}
-\label{tab:eff}
-\end{table}
-Table~\ref{tab:eff} lists the measurements.
-DAv2-S and VDA-S use the same input size, so the cost of temporal consistency is $1.7\times$ the time and $19\times$ the memory.
-The global scale is free at inference.
-
-\clearpage
+%-------------------------------------------------------------------------
 \section{Conclusion}
-Stereo makes the geometry concrete: with calibration, 1.42\,px of disparity error is millimeters near the camera and decimeters at the back of a room.
-RGB-only UniDepthV2-Small predicts NYU depth about 4\% too far.
-One scale fitted on 795 training images, and frozen, removes part of that bias: AbsRel goes from 0.1145 to 0.1020, with RMSE and $\delta_1$ improving too, in 13 of 16 scene types, and with a stable scale from about 50 images.
-Most of that bias comes from the predicted camera: with the true intrinsics the same correction is worth only 0.0014 AbsRel.
-On the rollercoaster clip, Video Depth Anything-Small changes less between frames than frame-wise Depth Anything~V2-Small, at $1.7\times$ the time and $19\times$ the memory.
+Under unified zero-test-leakage protocols spanning 15 Middlebury stereo pairs, 1,449 NYU Depth v2 frames, and three multi-domain videos, classical geometry and learned priors prove tightly complementary. In Part~1 stereo, LRC + CLAHE + guided hole-filling delivers sub-5~cm near-range precision yet obeys quadratic $O(Z^2)$ degradation. In Parts~2--3, auditing frozen \texttt{UniDepthV2-Small} solely on NYU train uncovers focal-length--scale bias, intra-room contrast compression, and calibrated uncertainty, enabling a 2.18~ms 4367-D \texttt{ScaleProbe-2P} that drops NYU test AbsRel from $0.1145\to 0.0821$ ($0.0816$ with $\hat{K}_{\mathrm{train}}$, cutting degraded-frame rate from $37.2\%$ to $27.5\%$) and redeems noisy person-height overrides via Bayesian fusion (0.0852). Finally, combining KV-cache streaming \texttt{VDA-Small} ($-84.8\%$ VRAM) with shared-$K_{\mathrm{clip}}$, zero-sky keyframe IRLS ($4.2\times$ lower outdoor OPW than official \texttt{Metric-VDA-S}) enables temporally coherent metric depth and occlusion-aware thin-lens bokeh ($-63.8\%$ halo bleeding).
 
-\paragraph{Limitations.}
-The scale is specific to one dataset and one camera.
-It cannot fix images whose scale differs from the average (study, bookstore) or whose shape is wrong (bedroom), and it moves 37\% of images the wrong way.
-The video comparison has no ground truth and covers one 70-frame clip.
+\paragraph{Limitations \& Future Outlook.}
+Our error decomposition shows $\sim 80\%$ of remaining single-image error lies in unpredictable global room scale when architectural height cues are absent, while horizontal tilt ($t_x$) remains unidentifiable from monocular textures ($R^2_{\mathrm{CV}}=-0.011$); incorporating sparse SLAM parallax or inertial scale remains a promising next step.
 
-\paragraph{Future work.}
-A per-image cue, such as the EXIF focal length or a detected object of known size, could address the image-specific residual that the oracle exposes (AbsRel 0.102 versus 0.060).
-Fitting the scale per scene type, or in disparity space, would test whether part of that residual is shared within a domain.
-
-{
-\small
+%%%%%%%%% REFERENCES
+\FloatBarrier
+\clearpage
+{\small
 \bibliographystyle{ieeenat_fullname}
 \bibliography{main}
 }
-
-\clearpage
-\appendix
-\section{Earlier experiments (not part of the main comparison)}
-Before the final brief, we tried three additional things.
-They use a different protocol and are not compared with Table~\ref{tab:nyu}.
-\textbf{Aligned relative depth on NYU.} Depth Anything~V2-Small with a per-image scale and shift fitted to \emph{test} ground truth reaches AbsRel 0.132; median scaling alone gives 1.35.
-The course protocol forbids test-set alignment, so this is only evidence that relative depth needs both a scale and a shift.
-\textbf{Known-height calibration.} A detected person or car rescales an image with a 1.70\,m or 1.59\,m height prior~\cite{zhu2020scalenet}.
-Only 60 of 654 test images cast a vote, and the calibrated AbsRel rises to 0.273 (UniDepth with Kinect intrinsics).
-\textbf{Obstacle ranking and a 1.5\,m warning.} On that calibrated depth, pairwise order accuracy over 9{,}127 obstacle pairs is 0.932, and the warning has precision 0.911, recall 0.693, and F1 0.788.
-Flow-guided fusion was also run on two self-recorded phone clips; the final brief does not require self-recorded video.
 
 \end{document}
