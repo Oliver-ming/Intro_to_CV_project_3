@@ -203,7 +203,7 @@ def main() -> None:
     ra = p_auth.add_run(
         "作者：Yuming Zhang (50025933, 1756882063@qq.com)  &  Jiayang Liu (50027216)\n"
         "单位：香港科技大学（广州）  |  课程：AIAA 3201 (Spring 2027)\n"
-        "代码仓库：https://github.com/zhangym0420/Intro_to_CV_project_3"
+        "代码仓库：https://github.com/Oliver-ming/Intro_to_CV_project_3"
     )
     set_run_font(ra, 9.5, bold=False, color=(80, 80, 80))
 
